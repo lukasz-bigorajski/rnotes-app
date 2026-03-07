@@ -1,0 +1,7 @@
+- Enter plan mode for ANY non-trivial task
+- If something goes sideways, STOP and re-plan immediately
+- Use plan mode for verification steps, not just building
+- Use subagents liberally to keep main context window clean
+- Make every change as simple as possible. Impact minimal code
+- Find root causes. No temporary fixes
+- Changes should only touch what's necessary.
