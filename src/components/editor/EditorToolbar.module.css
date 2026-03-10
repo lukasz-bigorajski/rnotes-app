@@ -1,0 +1,11 @@
+.toolbar {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--mantine-color-default-border);
+  margin: 0 4px;
+}

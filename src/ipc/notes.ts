@@ -29,9 +29,9 @@ export function createNote(params: {
   isFolder: boolean;
 }): Promise<Note> {
   return invoke("create_note", {
-    parent_id: params.parentId ?? null,
+    parentId: params.parentId ?? null,
     title: params.title,
-    is_folder: params.isFolder,
+    isFolder: params.isFolder,
   });
 }
 
@@ -40,7 +40,7 @@ export function getNote(id: string): Promise<Note> {
 }
 
 export function listNotes(includeDeleted?: boolean): Promise<NoteRow[]> {
-  return invoke("list_notes", { include_deleted: includeDeleted ?? false });
+  return invoke("list_notes", { includeDeleted: includeDeleted ?? false });
 }
 
 export function updateNote(params: {
@@ -53,7 +53,7 @@ export function updateNote(params: {
     id: params.id,
     title: params.title,
     content: params.content,
-    plain_text: params.plainText,
+    plainText: params.plainText,
   });
 }
 

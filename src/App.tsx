@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AppShell } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { Sidebar } from "./components/Sidebar";
@@ -5,6 +6,7 @@ import { ContentArea } from "./components/ContentArea";
 
 export default function App() {
   const [opened] = useDisclosure(true);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
   return (
     <AppShell
@@ -16,11 +18,11 @@ export default function App() {
       padding="md"
     >
       <AppShell.Navbar p="sm">
-        <Sidebar />
+        <Sidebar activeNoteId={activeNoteId} setActiveNoteId={setActiveNoteId} />
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <ContentArea />
+        <ContentArea activeNoteId={activeNoteId} />
       </AppShell.Main>
     </AppShell>
   );
