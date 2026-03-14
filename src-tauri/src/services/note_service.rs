@@ -114,6 +114,15 @@ mod tests {
     }
 
     #[test]
+    fn test_create_note_has_empty_content() {
+        let conn = test_connection();
+        let note = create_note(&conn, create_req("Note", false)).unwrap();
+
+        assert!(!note.is_folder);
+        assert_eq!(note.content, Some("{}".to_string()));
+    }
+
+    #[test]
     fn test_update_note_changes_content() {
         let conn = test_connection();
         let note = create_note(&conn, create_req("Original", false)).unwrap();
