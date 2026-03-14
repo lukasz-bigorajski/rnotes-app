@@ -52,3 +52,15 @@ pub fn delete_note(state: State<'_, DbState>, id: String) -> Result<(), AppError
     let conn = lock_db(&state)?;
     note_service::delete_note(&conn, &id)
 }
+
+#[tauri::command]
+pub fn rename_note(state: State<'_, DbState>, id: String, title: String) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    note_service::rename_note(&conn, &id, &title)
+}
+
+#[tauri::command]
+pub fn delete_note_tree(state: State<'_, DbState>, id: String) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    note_service::delete_note_tree(&conn, &id)
+}

@@ -79,6 +79,34 @@ pub fn delete_note(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn rename_note(conn: &Connection, id: &str, title: &str) -> AppResult<()> {
+    let now = now_ms();
+    let tx = conn.unchecked_transaction()?;
+    notes::rename(&tx, id, title, now)?;
+
+    // If the note has an FTS entry, update it with the new title while preserving the body
+    if let Some(body) = fts::get_body(&tx, id)? {
+        fts::upsert(&tx, id, title, &body)?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn delete_note_tree(conn: &Connection, id: &str) -> AppResult<()> {
+    let now = now_ms();
+    let tx = conn.unchecked_transaction()?;
+    let deleted_ids = notes::soft_delete_tree(&tx, id, now)?;
+
+    // Remove all deleted notes from FTS index
+    for deleted_id in deleted_ids {
+        fts::remove(&tx, &deleted_id)?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

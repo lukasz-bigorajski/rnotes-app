@@ -118,6 +118,44 @@ pub fn soft_delete(conn: &Connection, id: &str, now: i64) -> AppResult<()> {
     Ok(())
 }
 
+pub fn rename(conn: &Connection, id: &str, title: &str, now: i64) -> AppResult<()> {
+    let affected = conn.execute(
+        "UPDATE notes SET title = ?1, updated_at = ?2 WHERE id = ?3 AND deleted_at IS NULL",
+        params![title, now, id],
+    )?;
+    if affected == 0 {
+        return Err(AppError::NotFound(format!("note {id}")));
+    }
+    Ok(())
+}
+
+pub fn soft_delete_tree(conn: &Connection, id: &str, now: i64) -> AppResult<Vec<String>> {
+    let mut deleted_ids = Vec::new();
+    let mut to_delete = vec![id.to_string()];
+
+    while let Some(current_id) = to_delete.pop() {
+        // Find all children of the current note
+        let mut stmt = conn.prepare(
+            "SELECT id FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL",
+        )?;
+        let children: Vec<String> = stmt
+            .query_map(params![&current_id], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Soft-delete the current note
+        conn.execute(
+            "UPDATE notes SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+            params![now, &current_id],
+        )?;
+        deleted_ids.push(current_id);
+
+        // Add children to the deletion queue
+        to_delete.extend(children);
+    }
+
+    Ok(deleted_ids)
+}
+
 pub fn max_sort_order(conn: &Connection, parent_id: Option<&str>) -> AppResult<f64> {
     let max: Option<f64> = match parent_id {
         Some(pid) => conn.query_row(

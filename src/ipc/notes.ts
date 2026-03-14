@@ -60,3 +60,17 @@ export function updateNote(params: {
 export function deleteNote(id: string): Promise<void> {
   return invoke("delete_note", { id });
 }
+
+export function renameNote(params: {
+  id: string;
+  title: string;
+}): Promise<void> {
+  return invoke("rename_note", {
+    id: params.id,
+    title: params.title,
+  });
+}
+
+export function deleteNoteTree(id: string): Promise<void> {
+  return invoke("delete_note_tree", { id });
+}

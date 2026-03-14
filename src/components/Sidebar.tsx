@@ -79,6 +79,7 @@ export function Sidebar({ activeNoteId, setActiveNoteId }: SidebarProps) {
           notes={visibleNotes}
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}
+          onNotesChanged={loadNotes}
         />
       )}
     </Stack>

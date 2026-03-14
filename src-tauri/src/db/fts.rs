@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 pub fn upsert(conn: &Connection, note_id: &str, title: &str, body: &str) -> AppResult<()> {
     conn.execute(
@@ -20,6 +20,18 @@ pub fn remove(conn: &Connection, note_id: &str) -> AppResult<()> {
         params![note_id],
     )?;
     Ok(())
+}
+
+pub fn get_body(conn: &Connection, note_id: &str) -> AppResult<Option<String>> {
+    match conn.query_row(
+        "SELECT body FROM notes_fts WHERE note_id = ?1",
+        params![note_id],
+        |row| row.get(0),
+    ) {
+        Ok(body) => Ok(Some(body)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(AppError::Database(e)),
+    }
 }
 
 #[cfg(test)]

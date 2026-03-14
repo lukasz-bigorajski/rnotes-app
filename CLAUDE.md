@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Make every change as simple as possible. Impact minimal code
 - Find root causes. No temporary fixes
 - Changes should only touch what's necessary
+- Use context7 MCP for docs search
+- For a big UI change write a playwright test
 
 ## What This Is
 
