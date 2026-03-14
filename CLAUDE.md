@@ -13,6 +13,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Changes should only touch what's necessary
 - Use context7 MCP for docs search
 - For a big UI change write a playwright test
+- After ANY correction from the user: update `prompts/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start for relevant project
+- Never mark a task complete without proving it works
+- Ask yourself: "Would a staff engineer approve this?" Run tests, check logs, demonstrate correctness
 
 ## What This Is
 

@@ -108,6 +108,59 @@ async function installTauriMock(page: Page) {
             return Promise.resolve();
           }
 
+          case "rename_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            note.title = args?.title as string;
+            note.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
+          case "delete_note_tree": {
+            const id = args?.id as string;
+            const now = Date.now();
+            const softDelete = (noteId: string) => {
+              const n = notes.get(noteId);
+              if (!n) return;
+              n.deleted_at = now;
+              n.updated_at = now;
+              // Recursively soft-delete children
+              for (const child of notes.values()) {
+                if (child.parent_id === noteId) {
+                  softDelete(child.id);
+                }
+              }
+            };
+            softDelete(id);
+            return Promise.resolve();
+          }
+
+          case "move_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            note.parent_id = (args?.newParentId as string | null) ?? null;
+            note.sort_order = args?.newSortOrder as number;
+            note.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
+          case "restore_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            note.deleted_at = null;
+            note.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
           default:
             console.warn(`Unhandled Tauri command: ${cmd}`, args);
             return Promise.resolve();
