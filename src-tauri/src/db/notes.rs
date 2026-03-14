@@ -133,3 +133,113 @@ pub fn max_sort_order(conn: &Connection, parent_id: Option<&str>) -> AppResult<f
     };
     Ok(max.unwrap_or(0.0))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::test_helpers::test_connection;
+    use crate::error::AppError;
+
+    fn make_note(id: &str, title: &str, sort_order: f64, parent_id: Option<&str>) -> Note {
+        Note {
+            id: id.to_string(),
+            parent_id: parent_id.map(|s| s.to_string()),
+            title: title.to_string(),
+            content: Some("{}".to_string()),
+            sort_order,
+            is_folder: false,
+            deleted_at: None,
+            created_at: 1000,
+            updated_at: 1000,
+        }
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let conn = test_connection();
+        let note = make_note("note-1", "Test Note", 1.0, None);
+        insert(&conn, &note).unwrap();
+
+        let fetched = get_by_id(&conn, "note-1").unwrap();
+        assert_eq!(fetched.id, "note-1");
+        assert_eq!(fetched.title, "Test Note");
+        assert_eq!(fetched.content, Some("{}".to_string()));
+        assert_eq!(fetched.sort_order, 1.0);
+        assert!(!fetched.is_folder);
+        assert!(fetched.deleted_at.is_none());
+        assert_eq!(fetched.created_at, 1000);
+        assert_eq!(fetched.updated_at, 1000);
+        assert!(fetched.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_list_metadata_excludes_deleted() {
+        let conn = test_connection();
+        insert(&conn, &make_note("n1", "Note 1", 1.0, None)).unwrap();
+        insert(&conn, &make_note("n2", "Note 2", 2.0, None)).unwrap();
+
+        soft_delete(&conn, "n1", 2000).unwrap();
+
+        let active = list_metadata(&conn, false).unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].id, "n2");
+
+        let all = list_metadata(&conn, true).unwrap();
+        assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_update() {
+        let conn = test_connection();
+        insert(&conn, &make_note("n1", "Original", 1.0, None)).unwrap();
+
+        update(&conn, "n1", "Updated Title", "Updated Content", 2000).unwrap();
+
+        let fetched = get_by_id(&conn, "n1").unwrap();
+        assert_eq!(fetched.title, "Updated Title");
+        assert_eq!(fetched.content, Some("Updated Content".to_string()));
+        assert_eq!(fetched.updated_at, 2000);
+    }
+
+    #[test]
+    fn test_soft_delete() {
+        let conn = test_connection();
+        insert(&conn, &make_note("n1", "Note", 1.0, None)).unwrap();
+
+        soft_delete(&conn, "n1", 2000).unwrap();
+
+        let result = get_by_id(&conn, "n1");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::NotFound(msg) => assert!(msg.contains("n1")),
+            other => panic!("Expected NotFound, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_max_sort_order() {
+        let conn = test_connection();
+        // No notes yet — should be 0.0
+        assert_eq!(max_sort_order(&conn, None).unwrap(), 0.0);
+
+        insert(&conn, &make_note("n1", "A", 5.0, None)).unwrap();
+        insert(&conn, &make_note("n2", "B", 3.0, None)).unwrap();
+        assert_eq!(max_sort_order(&conn, None).unwrap(), 5.0);
+
+        // Insert a note under a parent
+        insert(&conn, &Note {
+            id: "child-1".to_string(),
+            parent_id: Some("n1".to_string()),
+            title: "Child".to_string(),
+            content: Some("{}".to_string()),
+            sort_order: 10.0,
+            is_folder: false,
+            deleted_at: None,
+            created_at: 1000,
+            updated_at: 1000,
+        }).unwrap();
+
+        assert_eq!(max_sort_order(&conn, Some("n1")).unwrap(), 10.0);
+        assert_eq!(max_sort_order(&conn, Some("n2")).unwrap(), 0.0);
+    }
+}

@@ -4,6 +4,9 @@ pub mod notes;
 pub mod schema;
 pub mod tasks;
 
+#[cfg(test)]
+pub mod test_helpers;
+
 use rusqlite::Connection;
 use std::path::Path;
 

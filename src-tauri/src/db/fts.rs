@@ -21,3 +21,70 @@ pub fn remove(conn: &Connection, note_id: &str) -> AppResult<()> {
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::test_helpers::test_connection;
+
+    #[test]
+    fn test_upsert_and_search() {
+        let conn = test_connection();
+        upsert(&conn, "note-1", "My Title", "Some body text").unwrap();
+
+        let (title, body): (String, String) = conn
+            .query_row(
+                "SELECT title, body FROM notes_fts WHERE note_id = ?1",
+                params!["note-1"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(title, "My Title");
+        assert_eq!(body, "Some body text");
+    }
+
+    #[test]
+    fn test_remove() {
+        let conn = test_connection();
+        upsert(&conn, "note-1", "Title", "Body").unwrap();
+        remove(&conn, "note-1").unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM notes_fts WHERE note_id = ?1",
+                params!["note-1"],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_upsert_replaces_existing() {
+        let conn = test_connection();
+        upsert(&conn, "note-1", "Old Title", "Old Body").unwrap();
+        upsert(&conn, "note-1", "New Title", "New Body").unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM notes_fts WHERE note_id = ?1",
+                params!["note-1"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+
+        let (title, body): (String, String) = conn
+            .query_row(
+                "SELECT title, body FROM notes_fts WHERE note_id = ?1",
+                params!["note-1"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(title, "New Title");
+        assert_eq!(body, "New Body");
+    }
+}
