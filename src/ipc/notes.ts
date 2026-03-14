@@ -86,3 +86,7 @@ export function moveNote(params: {
     newSortOrder: params.newSortOrder,
   });
 }
+
+export function restoreNote(id: string): Promise<void> {
+  return invoke("restore_note", { id });
+}

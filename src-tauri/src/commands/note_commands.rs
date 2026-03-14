@@ -75,3 +75,9 @@ pub fn move_note(
     let conn = lock_db(&state)?;
     note_service::move_note(&conn, &id, new_parent_id.as_deref(), new_sort_order)
 }
+
+#[tauri::command]
+pub fn restore_note(state: State<'_, DbState>, id: String) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    note_service::restore_note(&conn, &id)
+}

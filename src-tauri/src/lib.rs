@@ -36,6 +36,7 @@ pub fn run() {
             commands::note_commands::rename_note,
             commands::note_commands::delete_note_tree,
             commands::note_commands::move_note,
+            commands::note_commands::restore_note,
             commands::config_commands::get_config,
         ])
         .run(tauri::generate_context!())

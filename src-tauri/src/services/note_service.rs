@@ -153,6 +153,47 @@ pub fn move_note(
     Ok(())
 }
 
+pub fn restore_note(conn: &Connection, id: &str) -> AppResult<()> {
+    let now = now_ms();
+    let tx = conn.unchecked_transaction()?;
+
+    // Fetch the note including deleted ones
+    let note = notes::get_by_id_including_deleted(&tx, id)?;
+
+    // Check if the note is actually deleted
+    if note.deleted_at.is_none() {
+        return Err(AppError::Config(format!("note {id} is not deleted")));
+    }
+
+    // Determine the new parent_id:
+    // If the original parent exists and is not deleted, keep it; else restore to root (NULL)
+    let corrected_parent_id = match note.parent_id {
+        Some(parent_id) => {
+            match notes::get_by_id(&tx, &parent_id) {
+                Ok(_) => Some(parent_id),
+                Err(AppError::NotFound(_)) => None,
+                Err(e) => return Err(e),
+            }
+        }
+        None => None,
+    };
+
+    // Calculate new sort_order: max_sort_order of the final parent + 1.0
+    let new_sort_order = notes::max_sort_order(&tx, corrected_parent_id.as_deref())? + 1.0;
+
+    // Restore the note
+    notes::restore(&tx, id, corrected_parent_id.as_deref(), new_sort_order, now)?;
+
+    // Re-index in FTS (only for non-folders)
+    if !note.is_folder {
+        let plain_text = ""; // Empty body for restored note
+        fts::upsert(&tx, id, &note.title, plain_text)?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,5 +328,82 @@ mod tests {
         // Try to move note1 under note2 (non-folder) — should fail
         let result = move_note(&conn, &note1.id, Some(&note2.id), 1.0);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_restore_note_to_root() {
+        let conn = test_connection();
+        let note = create_note(&conn, create_req("To Delete", false)).unwrap();
+        let note_id = note.id.clone();
+
+        // Delete the note
+        delete_note(&conn, &note_id).unwrap();
+
+        // Verify it's gone from active notes
+        let result = get_note(&conn, &note_id);
+        assert!(result.is_err());
+
+        // Restore it
+        restore_note(&conn, &note_id).unwrap();
+
+        // Verify it's back and active
+        let restored = get_note(&conn, &note_id).unwrap();
+        assert_eq!(restored.id, note_id);
+        assert_eq!(restored.deleted_at, None);
+        assert_eq!(restored.parent_id, None);
+    }
+
+    #[test]
+    fn test_restore_note_preserves_parent() {
+        let conn = test_connection();
+        let folder = create_note(&conn, CreateNoteRequest {
+            parent_id: None,
+            title: "Folder".to_string(),
+            is_folder: true,
+        }).unwrap();
+
+        let note = create_note(&conn, CreateNoteRequest {
+            parent_id: Some(folder.id.clone()),
+            title: "Child Note".to_string(),
+            is_folder: false,
+        }).unwrap();
+
+        // Delete the note
+        delete_note(&conn, &note.id).unwrap();
+
+        // Restore it
+        restore_note(&conn, &note.id).unwrap();
+
+        // Verify parent is preserved
+        let restored = get_note(&conn, &note.id).unwrap();
+        assert_eq!(restored.parent_id, Some(folder.id));
+        assert_eq!(restored.deleted_at, None);
+    }
+
+    #[test]
+    fn test_restore_note_orphaned_goes_to_root() {
+        let conn = test_connection();
+        let folder = create_note(&conn, CreateNoteRequest {
+            parent_id: None,
+            title: "Folder".to_string(),
+            is_folder: true,
+        }).unwrap();
+
+        let note = create_note(&conn, CreateNoteRequest {
+            parent_id: Some(folder.id.clone()),
+            title: "Child Note".to_string(),
+            is_folder: false,
+        }).unwrap();
+
+        // Delete both folder and note
+        delete_note_tree(&conn, &folder.id).unwrap();
+
+        // Restore the note (parent is gone)
+        restore_note(&conn, &note.id).unwrap();
+
+        // Verify it's restored to root
+        let restored = get_note(&conn, &note.id).unwrap();
+        assert_eq!(restored.parent_id, None);
+        assert_eq!(restored.deleted_at, None);
     }
 }
