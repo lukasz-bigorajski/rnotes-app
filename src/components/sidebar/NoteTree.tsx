@@ -67,13 +67,12 @@ function DraggableTreeNode({
     id: nodeId,
   });
 
-  // Setup droppable (only for folders to allow drop)
+  // Setup droppable for all nodes (folders accept drops inside, notes allow reordering)
   const {
     isOver,
     setNodeRef: setDroppableRef,
   } = useDroppable({
     id: nodeId,
-    disabled: !isFolder,
   });
 
   const handleClick = (e: React.MouseEvent) => {
@@ -118,14 +117,15 @@ function DraggableTreeNode({
     );
   }
 
-  const nodeRef = isFolder ? setDroppableRef : undefined;
   const className = `${classes.treeNode} ${isActive ? classes.selected : ""} ${
     isDraggedNode ? classes.dragging : ""
-  } ${isOver ? classes.dropZoneActive : ""}`;
+  } ${isOver && !isDraggedNode ? classes.dropZoneActive : ""} ${
+    isOver && isFolder && !isDraggedNode ? classes.dropZoneFolder : ""
+  }`;
 
   return (
     <Group
-      ref={nodeRef}
+      ref={setDroppableRef}
       gap={6}
       {...elementProps}
       {...draggableAttributes}
@@ -251,11 +251,15 @@ export function NoteTree({
     isFolder: boolean
   ) => {
     try {
-      await createNote({
+      const note = await createNote({
         parentId,
         title,
         isFolder,
       });
+      tree.expand(parentId);
+      if (!isFolder) {
+        setActiveNoteId(note.id);
+      }
       onNotesChanged();
     } catch (err) {
       console.error("Failed to create note:", err);

@@ -1,12 +1,13 @@
 import {
   DndContext,
   DragEndEvent,
-  closestCenter,
+  DragStartEvent,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { NoteRow } from "../../ipc/notes";
 import { moveNote } from "../../ipc/notes";
 import { calcSortOrder, type Sibling } from "../../utils/calcSortOrder";
@@ -52,9 +53,24 @@ export function DraggableTree({
     [notes, draggedNoteId]
   );
 
-  const handleDragStart = (event: any) => {
+  /** Returns true if `ancestorId` is an ancestor of `nodeId` (circular move check). */
+  const isDescendant = useCallback(
+    (nodeId: string, ancestorId: string): boolean => {
+      const children = notes.filter(
+        (n) => n.parent_id === ancestorId && n.deleted_at === null,
+      );
+      for (const child of children) {
+        if (child.id === nodeId) return true;
+        if (child.is_folder && isDescendant(nodeId, child.id)) return true;
+      }
+      return false;
+    },
+    [notes],
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
-    setDraggedNoteId(event.active.id);
+    setDraggedNoteId(event.active.id as string);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -81,6 +97,17 @@ export function DraggableTree({
       const targetNote = notes.find((n) => n.id === targetId);
       if (!targetNote) {
         console.error("Target note not found:", targetId);
+        return;
+      }
+
+      // Prevent circular moves: cannot drop a folder into its own descendant
+      const draggedNoteObj = notes.find((n) => n.id === draggedId);
+      if (
+        draggedNoteObj?.is_folder &&
+        targetNote.is_folder &&
+        isDescendant(targetId, draggedId)
+      ) {
+        console.warn("Cannot move folder into its own descendant");
         return;
       }
 
@@ -150,7 +177,7 @@ export function DraggableTree({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

@@ -35,3 +35,29 @@
   color: var(--mantine-color-gray-6);
   flex-shrink: 0;
 }
+
+/* Drag & drop visual feedback */
+.dragging {
+  opacity: 0.4;
+}
+
+.dropZoneActive {
+  border-top: 2px solid var(--mantine-color-blue-5);
+  border-radius: 2px;
+}
+
+.dropZoneFolder {
+  background-color: var(--mantine-color-blue-1);
+  border: 2px solid var(--mantine-color-blue-5);
+  border-top: none;
+  border-radius: 4px;
+}
+
+.dragOverlay {
+  padding: 6px 12px;
+  border-radius: 4px;
+  background-color: var(--mantine-color-white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--mantine-color-gray-3);
+  cursor: grabbing;
+}
