@@ -27,6 +27,7 @@ export function NoteEditor({ content, noteId, onSave }: NoteEditorProps) {
       }),
     ],
     content: content ?? undefined,
+    shouldRerenderOnTransaction: true,
   });
 
   useAutoSave({

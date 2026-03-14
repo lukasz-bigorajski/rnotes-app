@@ -1,0 +1,139 @@
+import { test as base, type Page } from "@playwright/test";
+
+interface Note {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  content: string | null;
+  sort_order: number;
+  is_folder: boolean;
+  deleted_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+const SEED_NOTE: Note = {
+  id: "test-note-1",
+  parent_id: null,
+  title: "Test Note",
+  content: "{}",
+  sort_order: 0,
+  is_folder: false,
+  deleted_at: null,
+  created_at: Date.now(),
+  updated_at: Date.now(),
+};
+
+async function installTauriMock(page: Page) {
+  await page.addInitScript((seedNote: Note) => {
+    const notes = new Map<string, Note>();
+    notes.set(seedNote.id, { ...seedNote });
+
+    let callbackId = 0;
+
+    (window as any).__TAURI_INTERNALS__ = {
+      metadata: {
+        currentWindow: { label: "main" },
+        currentWebview: { label: "main" },
+      },
+      transformCallback: (callback?: (payload: any) => void) => {
+        const id = callbackId++;
+        if (callback) {
+          (window as any)[`_${id}`] = callback;
+        }
+        return id;
+      },
+      invoke: (cmd: string, args?: Record<string, unknown>) => {
+        // Handle Tauri event system commands
+        if (cmd === "plugin:event|listen" || cmd === "plugin:event|emit") {
+          return Promise.resolve();
+        }
+
+        switch (cmd) {
+          case "create_note": {
+            const now = Date.now();
+            const note: Note = {
+              id: crypto.randomUUID(),
+              parent_id: (args?.parentId as string) ?? null,
+              title: (args?.title as string) ?? "Untitled",
+              content: null,
+              sort_order: notes.size,
+              is_folder: (args?.isFolder as boolean) ?? false,
+              deleted_at: null,
+              created_at: now,
+              updated_at: now,
+            };
+            notes.set(note.id, note);
+            return Promise.resolve(note);
+          }
+
+          case "get_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            return Promise.resolve({ ...note });
+          }
+
+          case "list_notes": {
+            const includeDeleted = args?.includeDeleted as boolean;
+            const rows = Array.from(notes.values())
+              .filter((n) => includeDeleted || !n.deleted_at)
+              .map(({ content: _, ...row }) => row);
+            return Promise.resolve(rows);
+          }
+
+          case "update_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            if (args?.title !== undefined) note.title = args.title as string;
+            if (args?.content !== undefined)
+              note.content = args.content as string;
+            note.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
+          case "delete_note": {
+            const id = args?.id as string;
+            const note = notes.get(id);
+            if (!note) {
+              return Promise.reject(`Note not found: ${id}`);
+            }
+            note.deleted_at = Date.now();
+            note.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
+          default:
+            console.warn(`Unhandled Tauri command: ${cmd}`, args);
+            return Promise.resolve();
+        }
+      },
+    };
+
+    type Note = {
+      id: string;
+      parent_id: string | null;
+      title: string;
+      content: string | null;
+      sort_order: number;
+      is_folder: boolean;
+      deleted_at: number | null;
+      created_at: number;
+      updated_at: number;
+    };
+  }, SEED_NOTE);
+}
+
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    await installTauriMock(page);
+    await use(page);
+  },
+});
+
+export { expect } from "@playwright/test";
