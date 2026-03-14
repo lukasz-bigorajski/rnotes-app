@@ -172,6 +172,46 @@ pub fn max_sort_order(conn: &Connection, parent_id: Option<&str>) -> AppResult<f
     Ok(max.unwrap_or(0.0))
 }
 
+pub fn move_note(
+    conn: &Connection,
+    id: &str,
+    parent_id: Option<&str>,
+    sort_order: f64,
+    now: i64,
+) -> AppResult<()> {
+    let affected = conn.execute(
+        "UPDATE notes SET parent_id = ?1, sort_order = ?2, updated_at = ?3 WHERE id = ?4 AND deleted_at IS NULL",
+        params![parent_id, sort_order, now, id],
+    )?;
+    if affected == 0 {
+        return Err(AppError::NotFound(format!("note {id}")));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SiblingInfo {
+    pub id: String,
+    pub sort_order: f64,
+}
+
+pub fn get_siblings_sorted(conn: &Connection, parent_id: Option<&str>) -> AppResult<Vec<SiblingInfo>> {
+    let sql = match parent_id {
+        Some(_) => "SELECT id, sort_order FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL ORDER BY sort_order",
+        None => "SELECT id, sort_order FROM notes WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order",
+    };
+
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(params![parent_id], |row| {
+        Ok(SiblingInfo {
+            id: row.get(0)?,
+            sort_order: row.get(1)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(AppError::Database)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

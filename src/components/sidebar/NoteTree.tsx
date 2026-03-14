@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { buildTree } from "../../utils/buildTree";
 import type { NoteRow } from "../../ipc/notes";
 import type { TreeNodeData } from "@mantine/core";
@@ -15,41 +17,81 @@ interface NoteTreeProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
   onNotesChanged: () => void;
+  isDragging?: boolean;
+  draggedNoteId?: string | null;
 }
 
 /**
- * Custom TreeNode renderer that displays folders with expand/collapse icons
- * and notes with note icons. Clicking a note selects it, clicking a folder
- * expands/collapses it. Right-click shows context menu for rename/delete/create.
+ * Draggable tree node with drop zone support.
+ * Handles drag/drop integration via @dnd-kit hooks.
  */
-function renderNode(
-  payload: RenderTreeNodePayload,
-  tree: ReturnType<typeof useTree>,
-  activeNoteId: string | null,
-  setActiveNoteId: (id: string | null) => void,
-  renamingNodeId: string | null,
-  setRenamingNodeId: (id: string | null) => void,
-  isRenamingLoading: boolean,
-  onRenameSubmit: (id: string, newTitle: string) => void,
-  onDelete: (id: string) => void,
-  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void
-) {
+function DraggableTreeNode({
+  nodeId,
+  payload,
+  tree,
+  activeNoteId,
+  setActiveNoteId,
+  renamingNodeId,
+  setRenamingNodeId,
+  isRenamingLoading,
+  onRenameSubmit,
+  onDelete,
+  onCreateNote,
+  draggedNoteId,
+}: {
+  nodeId: string;
+  payload: RenderTreeNodePayload;
+  tree: ReturnType<typeof useTree>;
+  activeNoteId: string | null;
+  setActiveNoteId: (id: string | null) => void;
+  renamingNodeId: string | null;
+  setRenamingNodeId: (id: string | null) => void;
+  isRenamingLoading: boolean;
+  onRenameSubmit: (id: string, newTitle: string) => void;
+  onDelete: (id: string) => void;
+  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void;
+  draggedNoteId?: string | null;
+}) {
   const { node, expanded, elementProps } = payload;
   const isFolder = (node.nodeProps as { isFolder: boolean }).isFolder;
   const isActive = node.value === activeNoteId;
   const isRenaming = renamingNodeId === node.value;
+  const isDraggedNode = draggedNoteId === nodeId;
+
+  // Setup draggable
+  const {
+    attributes: draggableAttributes,
+    listeners: draggableListeners,
+    transform,
+  } = useDraggable({
+    id: nodeId,
+  });
+
+  // Setup droppable (only for folders to allow drop)
+  const {
+    isOver,
+    setNodeRef: setDroppableRef,
+  } = useDroppable({
+    id: nodeId,
+    disabled: !isFolder,
+  });
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (isFolder) {
-      // Toggle expand state for folders
       tree.toggleExpanded(node.value);
     } else {
-      // Select note for non-folders
       setActiveNoteId(node.value);
     }
   };
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+        opacity: isDraggedNode ? 0.5 : 1,
+      }
+    : {};
 
   if (isRenaming) {
     const labelStr = typeof node.label === "string" ? node.label : String(node.label);
@@ -59,6 +101,7 @@ function renderNode(
         {...elementProps}
         className={classes.treeNode}
         onClick={(e) => e.stopPropagation()}
+        style={style}
       >
         {isFolder ? (
           <IconFolder size={16} className={classes.folderIcon} />
@@ -75,13 +118,22 @@ function renderNode(
     );
   }
 
+  const nodeRef = isFolder ? setDroppableRef : undefined;
+  const className = `${classes.treeNode} ${isActive ? classes.selected : ""} ${
+    isDraggedNode ? classes.dragging : ""
+  } ${isOver ? classes.dropZoneActive : ""}`;
+
   return (
     <Group
+      ref={nodeRef}
       gap={6}
       {...elementProps}
+      {...draggableAttributes}
+      {...draggableListeners}
       onClick={handleClick}
-      className={`${classes.treeNode} ${isActive ? classes.selected : ""}`}
+      className={className}
       data-selected={isActive}
+      style={style}
     >
       {isFolder ? (
         expanded ? (
@@ -104,11 +156,53 @@ function renderNode(
   );
 }
 
+/**
+ * Custom TreeNode renderer that displays folders with expand/collapse icons
+ * and notes with note icons. Clicking a note selects it, clicking a folder
+ * expands/collapses it. Right-click shows context menu for rename/delete/create.
+ */
+function renderNode(
+  payload: RenderTreeNodePayload,
+  tree: ReturnType<typeof useTree>,
+  activeNoteId: string | null,
+  setActiveNoteId: (id: string | null) => void,
+  renamingNodeId: string | null,
+  setRenamingNodeId: (id: string | null) => void,
+  isRenamingLoading: boolean,
+  onRenameSubmit: (id: string, newTitle: string) => void,
+  onDelete: (id: string) => void,
+  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void,
+  _isDragging?: boolean,
+  draggedNoteId?: string | null
+) {
+  const { node } = payload;
+  const nodeId = node.value;
+
+  return (
+    <DraggableTreeNode
+      nodeId={nodeId}
+      payload={payload}
+      tree={tree}
+      activeNoteId={activeNoteId}
+      setActiveNoteId={setActiveNoteId}
+      renamingNodeId={renamingNodeId}
+      setRenamingNodeId={setRenamingNodeId}
+      isRenamingLoading={isRenamingLoading}
+      onRenameSubmit={onRenameSubmit}
+      onDelete={onDelete}
+      onCreateNote={onCreateNote}
+      draggedNoteId={draggedNoteId}
+    />
+  );
+}
+
 export function NoteTree({
   notes,
   activeNoteId,
   setActiveNoteId,
   onNotesChanged,
+  isDragging: _isDragging,
+  draggedNoteId,
 }: NoteTreeProps) {
   const tree = useTree({
     multiple: false,
@@ -183,7 +277,9 @@ export function NoteTree({
           isRenamingLoading,
           handleRenameSubmit,
           handleDelete,
-          handleCreateNote
+          handleCreateNote,
+          _isDragging,
+          draggedNoteId
         )
       }
       classNames={classes}

@@ -74,3 +74,15 @@ export function renameNote(params: {
 export function deleteNoteTree(id: string): Promise<void> {
   return invoke("delete_note_tree", { id });
 }
+
+export function moveNote(params: {
+  id: string;
+  newParentId?: string | null;
+  newSortOrder: number;
+}): Promise<void> {
+  return invoke("move_note", {
+    id: params.id,
+    newParentId: params.newParentId ?? null,
+    newSortOrder: params.newSortOrder,
+  });
+}

@@ -64,3 +64,14 @@ pub fn delete_note_tree(state: State<'_, DbState>, id: String) -> Result<(), App
     let conn = lock_db(&state)?;
     note_service::delete_note_tree(&conn, &id)
 }
+
+#[tauri::command]
+pub fn move_note(
+    state: State<'_, DbState>,
+    id: String,
+    new_parent_id: Option<String>,
+    new_sort_order: f64,
+) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    note_service::move_note(&conn, &id, new_parent_id.as_deref(), new_sort_order)
+}

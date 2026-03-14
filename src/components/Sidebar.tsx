@@ -4,7 +4,7 @@ import { IconPlus, IconFolder } from "@tabler/icons-react";
 import { createNote, listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
 import { useEffect } from "react";
-import { NoteTree } from "./sidebar/NoteTree";
+import { DraggableTree } from "./sidebar/DraggableTree";
 
 interface SidebarProps {
   activeNoteId: string | null;
@@ -75,7 +75,7 @@ export function Sidebar({ activeNoteId, setActiveNoteId }: SidebarProps) {
           No notes yet. Create one to get started.
         </Text>
       ) : (
-        <NoteTree
+        <DraggableTree
           notes={visibleNotes}
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}

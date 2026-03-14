@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::db::{fts, notes};
 use crate::db::notes::{Note, NoteRow};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 fn now_ms() -> i64 {
     let dur = std::time::SystemTime::now()
@@ -107,6 +107,52 @@ pub fn delete_note_tree(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn move_note(
+    conn: &Connection,
+    id: &str,
+    new_parent_id: Option<&str>,
+    new_sort_order: f64,
+) -> AppResult<()> {
+    // Check that the note exists and is not deleted
+    let _note = notes::get_by_id(conn, id)?;
+
+    // Prevent circular references: walk up the parent chain from new_parent_id
+    if let Some(new_parent) = new_parent_id {
+        let mut current_id = new_parent.to_string();
+        loop {
+            if current_id == id {
+                return Err(AppError::Config(
+                    "Cannot move note into its own subtree (circular reference)".into(),
+                ));
+            }
+            match notes::get_by_id(conn, &current_id) {
+                Ok(parent_note) => {
+                    if let Some(parent_of_parent) = parent_note.parent_id {
+                        current_id = parent_of_parent;
+                    } else {
+                        break;
+                    }
+                }
+                Err(AppError::NotFound(_)) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        // Validate that new_parent_id is a folder
+        let parent_note = notes::get_by_id(conn, new_parent)?;
+        if !parent_note.is_folder {
+            return Err(AppError::Config(format!(
+                "Cannot move note under non-folder '{}'",
+                parent_note.id
+            )));
+        }
+    }
+
+    let now = now_ms();
+    notes::move_note(conn, id, new_parent_id, new_sort_order, now)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +233,59 @@ mod tests {
         assert_eq!(n1.sort_order, 1.0);
         assert_eq!(n2.sort_order, 2.0);
         assert_eq!(n3.sort_order, 3.0);
+    }
+
+    #[test]
+    fn test_move_note_changes_parent() {
+        let conn = test_connection();
+        let folder = create_note(&conn, CreateNoteRequest {
+            parent_id: None,
+            title: "Folder".to_string(),
+            is_folder: true,
+        }).unwrap();
+
+        let note = create_note(&conn, CreateNoteRequest {
+            parent_id: None,
+            title: "Note".to_string(),
+            is_folder: false,
+        }).unwrap();
+
+        // Move note into folder
+        move_note(&conn, &note.id, Some(&folder.id), 1.5).unwrap();
+
+        let updated = get_note(&conn, &note.id).unwrap();
+        assert_eq!(updated.parent_id, Some(folder.id));
+        assert_eq!(updated.sort_order, 1.5);
+    }
+
+    #[test]
+    fn test_move_note_prevents_circular_reference() {
+        let conn = test_connection();
+        let parent_folder = create_note(&conn, CreateNoteRequest {
+            parent_id: None,
+            title: "Parent".to_string(),
+            is_folder: true,
+        }).unwrap();
+
+        let child_folder = create_note(&conn, CreateNoteRequest {
+            parent_id: Some(parent_folder.id.clone()),
+            title: "Child".to_string(),
+            is_folder: true,
+        }).unwrap();
+
+        // Try to move parent into child — should fail
+        let result = move_note(&conn, &parent_folder.id, Some(&child_folder.id), 1.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_move_note_validates_parent_is_folder() {
+        let conn = test_connection();
+        let note1 = create_note(&conn, create_req("Note1", false)).unwrap();
+        let note2 = create_note(&conn, create_req("Note2", false)).unwrap();
+
+        // Try to move note1 under note2 (non-folder) — should fail
+        let result = move_note(&conn, &note1.id, Some(&note2.id), 1.0);
+        assert!(result.is_err());
     }
 }
