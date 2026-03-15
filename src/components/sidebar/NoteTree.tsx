@@ -3,7 +3,6 @@ import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { buildTree } from "../../utils/buildTree";
 import type { NoteRow } from "../../ipc/notes";
 import type { TreeNodeData } from "@mantine/core";
@@ -37,7 +36,6 @@ function DraggableTreeNode({
   onRenameSubmit,
   onDelete,
   onCreateNote,
-  draggedNoteId,
 }: {
   nodeId: string;
   payload: RenderTreeNodePayload;
@@ -50,29 +48,27 @@ function DraggableTreeNode({
   onRenameSubmit: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
   onCreateNote: (parentId: string, title: string, isFolder: boolean) => void;
-  draggedNoteId?: string | null;
 }) {
-  const { node, expanded, elementProps } = payload;
+  const { node, expanded, hasChildren, elementProps } = payload;
   const isFolder = (node.nodeProps as { isFolder: boolean }).isFolder;
   const isActive = node.value === activeNoteId;
   const isRenaming = renamingNodeId === node.value;
-  const isDraggedNode = draggedNoteId === nodeId;
+  const showChildIndicator = isFolder && !expanded && hasChildren;
 
-  // Setup draggable
+  // Setup draggable — disable when renaming
   const {
     attributes: draggableAttributes,
     listeners: draggableListeners,
-    transform,
+    isDragging,
   } = useDraggable({
     id: nodeId,
+    disabled: isRenaming,
   });
 
   // Setup droppable for all nodes (folders accept drops inside, notes allow reordering)
-  const {
-    isOver,
-    setNodeRef: setDroppableRef,
-  } = useDroppable({
+  const { isOver, setNodeRef: setDroppableRef } = useDroppable({
     id: nodeId,
+    disabled: isRenaming,
   });
 
   const handleClick = (e: React.MouseEvent) => {
@@ -85,12 +81,10 @@ function DraggableTreeNode({
     }
   };
 
-  const style = transform
-    ? {
-        transform: CSS.Translate.toString(transform),
-        opacity: isDraggedNode ? 0.5 : 1,
-      }
-    : {};
+  // When using DragOverlay, do NOT apply the CSS transform to the source element.
+  // The overlay follows the cursor; the source element should stay in place and just
+  // become semi-transparent to indicate "this item is being moved".
+  const style: React.CSSProperties = isDragging ? { opacity: 0.4 } : {};
 
   if (isRenaming) {
     const labelStr = typeof node.label === "string" ? node.label : String(node.label);
@@ -100,7 +94,6 @@ function DraggableTreeNode({
         {...elementProps}
         className={classes.treeNode}
         onClick={(e) => e.stopPropagation()}
-        style={style}
       >
         {isFolder ? (
           <IconFolder size={16} className={classes.folderIcon} />
@@ -117,11 +110,15 @@ function DraggableTreeNode({
     );
   }
 
-  const className = `${classes.treeNode} ${isActive ? classes.selected : ""} ${
-    isDraggedNode ? classes.dragging : ""
-  } ${isOver && !isDraggedNode ? classes.dropZoneActive : ""} ${
-    isOver && isFolder && !isDraggedNode ? classes.dropZoneFolder : ""
-  }`;
+  const className = [
+    classes.treeNode,
+    isActive ? classes.selected : "",
+    isDragging ? classes.dragging : "",
+    isOver && !isDragging ? classes.dropZoneActive : "",
+    isOver && isFolder && !isDragging ? classes.dropZoneFolder : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <Group
@@ -145,6 +142,7 @@ function DraggableTreeNode({
         <IconNote size={16} className={classes.noteIcon} />
       )}
       <span className={classes.label}>{node.label}</span>
+      {showChildIndicator && <span className={classes.childIndicator} aria-label="has children" />}
       <TreeNodeMenu
         nodeId={node.value}
         isFolder={isFolder}
@@ -171,9 +169,7 @@ function renderNode(
   isRenamingLoading: boolean,
   onRenameSubmit: (id: string, newTitle: string) => void,
   onDelete: (id: string) => void,
-  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void,
-  _isDragging?: boolean,
-  draggedNoteId?: string | null
+  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void
 ) {
   const { node } = payload;
   const nodeId = node.value;
@@ -191,7 +187,6 @@ function renderNode(
       onRenameSubmit={onRenameSubmit}
       onDelete={onDelete}
       onCreateNote={onCreateNote}
-      draggedNoteId={draggedNoteId}
     />
   );
 }
@@ -202,7 +197,7 @@ export function NoteTree({
   setActiveNoteId,
   onNotesChanged,
   isDragging: _isDragging,
-  draggedNoteId,
+  draggedNoteId: _draggedNoteId,
 }: NoteTreeProps) {
   const tree = useTree({
     multiple: false,
@@ -281,9 +276,7 @@ export function NoteTree({
           isRenamingLoading,
           handleRenameSubmit,
           handleDelete,
-          handleCreateNote,
-          _isDragging,
-          draggedNoteId
+          handleCreateNote
         )
       }
       classNames={classes}

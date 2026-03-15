@@ -133,8 +133,9 @@ export function DraggableTree({
         return;
       }
 
-      // If dropped on a folder, insert as first child of that folder
-      // Otherwise, insert after the target (same parent, after target's sort_order)
+      // If dropped on a folder, insert as first child of that folder.
+      // Otherwise insert before the target — the CSS border-top on the drop zone
+      // visually suggests "insert above/before", so the code matches the visual.
       let newParentId: string | null = targetParentId;
       let newSortOrder: number;
 
@@ -151,13 +152,10 @@ export function DraggableTree({
           }))
           .sort((a, b) => a.sort_order - b.sort_order);
 
-        newSortOrder = calcSortOrder(folderChildSiblings, 0); // Insert as first
+        newSortOrder = calcSortOrder(folderChildSiblings, 0); // Insert as first child
       } else {
-        // Move to same level, right after the target
-        newSortOrder = calcSortOrder(
-          targetSiblings,
-          targetIndex + 1
-        );
+        // Move to same level, before the target (matches the border-top visual cue)
+        newSortOrder = calcSortOrder(targetSiblings, targetIndex);
       }
 
       // Call backend to move note

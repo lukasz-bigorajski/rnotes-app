@@ -36,6 +36,18 @@
   flex-shrink: 0;
 }
 
+/* Collapsed folder child indicator — small dot shown when folder has children but is collapsed */
+.childIndicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--mantine-color-yellow-5);
+  flex-shrink: 0;
+  margin-left: 2px;
+  align-self: center;
+}
+
 /* Drag & drop visual feedback */
 .dragging {
   opacity: 0.4;
