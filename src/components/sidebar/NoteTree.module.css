@@ -1,5 +1,10 @@
 .treeNode {
-  padding: 6px 8px;
+  /* Use padding-block/inline-end so we don't override Mantine's padding-inline-start
+     which carries the --label-offset CSS variable for tree indentation.
+     Add our 8px base to the offset so root nodes still have left padding. */
+  padding-block: 6px;
+  padding-inline-end: 8px;
+  padding-inline-start: calc(var(--label-offset, 0px) + 8px);
   border-radius: 4px;
   cursor: pointer;
   user-select: none;

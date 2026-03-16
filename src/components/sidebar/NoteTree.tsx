@@ -102,7 +102,7 @@ function DraggableTreeNode({
       <Group
         gap={6}
         {...elementProps}
-        className={classes.treeNode}
+        className={[elementProps.className, classes.treeNode].filter(Boolean).join(" ")}
         onClick={(e) => e.stopPropagation()}
       >
         {isFolder ? (
@@ -121,6 +121,7 @@ function DraggableTreeNode({
   }
 
   const className = [
+    elementProps.className,
     classes.treeNode,
     isActive ? classes.selected : "",
     isDragging ? classes.dragging : "",
@@ -270,6 +271,7 @@ export function NoteTree({
       tree={tree}
       renderNode={stableRenderNode}
       classNames={classes}
+      levelOffset={12}
     />
   );
 }

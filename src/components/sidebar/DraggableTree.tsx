@@ -21,15 +21,6 @@ interface DraggableTreeProps {
   onNotesChanged: () => void;
 }
 
-/**
- * Wrapper component that integrates @dnd-kit drag-and-drop functionality with NoteTree.
- * Handles:
- * - Drag start/end events
- * - Calculating new sort_order using fractional positioning
- * - Calling moveNote IPC to update backend
- * - Circular reference detection (backend validates)
- * - Refreshing notes after drag operations
- */
 export function DraggableTree({
   notes,
   activeNoteId,
@@ -39,7 +30,6 @@ export function DraggableTree({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
 
-  // Sensor config: pointer with small activation distance
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -53,7 +43,6 @@ export function DraggableTree({
     [notes, draggedNoteId]
   );
 
-  /** Returns true if `ancestorId` is an ancestor of `nodeId` (circular move check). */
   const isDescendant = useCallback(
     (nodeId: string, ancestorId: string): boolean => {
       const children = notes.filter(
@@ -79,29 +68,24 @@ export function DraggableTree({
 
     const { active, over } = event;
 
-    // No valid drop target
     if (!over) {
       return;
     }
 
     const draggedId = active.id as string;
-    // Droppable IDs use a "drop-" prefix to avoid collision with draggable IDs
     const targetId = (over.id as string).replace(/^drop-/, "");
 
-    // Dropped onto itself — no-op
     if (draggedId === targetId) {
       return;
     }
 
     try {
-      // Determine new parent and sort order from drop target
       const targetNote = notes.find((n) => n.id === targetId);
       if (!targetNote) {
         console.error("Target note not found:", targetId);
         return;
       }
 
-      // Prevent circular moves: cannot drop a folder into its own descendant
       const draggedNoteObj = notes.find((n) => n.id === draggedId);
       if (
         draggedNoteObj?.is_folder &&
@@ -112,14 +96,13 @@ export function DraggableTree({
         return;
       }
 
-      // Get siblings of the target to calculate sort_order
       const targetParentId = targetNote.parent_id;
       const targetSiblings: Sibling[] = notes
         .filter(
           (n) =>
             n.parent_id === targetParentId &&
             n.deleted_at === null &&
-            n.id !== draggedId // Exclude the dragged item itself
+            n.id !== draggedId
         )
         .map((n) => ({
           id: n.id,
@@ -127,21 +110,16 @@ export function DraggableTree({
         }))
         .sort((a, b) => a.sort_order - b.sort_order);
 
-      // Find the index of the target in its siblings
       const targetIndex = targetSiblings.findIndex((s) => s.id === targetId);
       if (targetIndex === -1) {
         console.error("Target not found in siblings");
         return;
       }
 
-      // If dropped on a folder, insert as first child of that folder.
-      // Otherwise insert before the target — the CSS border-top on the drop zone
-      // visually suggests "insert above/before", so the code matches the visual.
       let newParentId: string | null = targetParentId;
       let newSortOrder: number;
 
       if (targetNote.is_folder) {
-        // Move into the folder as first child
         newParentId = targetNote.id;
         const folderChildSiblings: Sibling[] = notes
           .filter(
@@ -153,20 +131,28 @@ export function DraggableTree({
           }))
           .sort((a, b) => a.sort_order - b.sort_order);
 
-        newSortOrder = calcSortOrder(folderChildSiblings, 0); // Insert as first child
+        newSortOrder = calcSortOrder(folderChildSiblings, 0);
       } else {
-        // Move to same level, before the target (matches the border-top visual cue)
-        newSortOrder = calcSortOrder(targetSiblings, targetIndex);
+        // Determine insert before or after based on where the dragged item's
+        // translated rect center is relative to the target's vertical midpoint.
+        // active.rect.current.translated is dnd-kit's authoritative current position.
+        const translatedRect = active.rect.current.translated;
+        const dragCenterY = translatedRect
+          ? translatedRect.top + translatedRect.height / 2
+          : over.rect.top;
+        const overMidY = over.rect.top + over.rect.height / 2;
+        const insertAfter = dragCenterY > overMidY;
+
+        const insertIndex = insertAfter ? targetIndex + 1 : targetIndex;
+        newSortOrder = calcSortOrder(targetSiblings, insertIndex);
       }
 
-      // Call backend to move note
       await moveNote({
         id: draggedId,
         newParentId,
         newSortOrder,
       });
 
-      // Refresh notes list
       onNotesChanged();
     } catch (err) {
       console.error("Failed to move note:", err);

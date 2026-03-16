@@ -144,8 +144,13 @@ test("drag note onto folder moves it into folder", async ({ page }) => {
   );
   await page.mouse.up();
 
-  // After drop, folder should expand showing "Test Note" as child,
-  // OR we verify the folder can be expanded to reveal the note
+  // Wait for the drop to process and the tree to refresh
+  await page.waitForTimeout(300);
+
+  // Expand the folder to reveal child note
   await folderItem.click();
-  await expect(page.getByText("Test Note")).toBeVisible();
+
+  // "Test Note" should be visible inside the sidebar tree (scope to nav to avoid
+  // matching the same text that may appear in the editor content area)
+  await expect(page.locator("nav").getByText("Test Note")).toBeVisible();
 });
