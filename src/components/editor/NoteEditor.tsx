@@ -1,6 +1,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TocExtension } from "./TocExtension";
 import { EditorToolbar } from "./EditorToolbar";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { JSONContent } from "@tiptap/react";
@@ -52,6 +53,7 @@ export function NoteEditor({
       Placeholder.configure({
         placeholder: "Start writing…",
       }),
+      TocExtension,
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,

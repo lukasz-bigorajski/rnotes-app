@@ -13,3 +13,13 @@
   background-color: var(--mantine-color-default-border);
   margin: 0 4px;
 }
+
+.floatingLinkDialog {
+  position: fixed;
+  z-index: 1000;
+  background-color: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
