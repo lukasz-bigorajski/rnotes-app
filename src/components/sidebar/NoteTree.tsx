@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
@@ -16,8 +16,6 @@ interface NoteTreeProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
   onNotesChanged: () => void;
-  isDragging?: boolean;
-  draggedNoteId?: string | null;
 }
 
 /**
@@ -56,20 +54,33 @@ function DraggableTreeNode({
   const showChildIndicator = isFolder && !expanded && hasChildren;
 
   // Setup draggable — disable when renaming
+  // Bug fix: extract setNodeRef so dnd-kit can track the draggable's bounding rect
   const {
     attributes: draggableAttributes,
     listeners: draggableListeners,
+    setNodeRef: setDraggableRef,
     isDragging,
   } = useDraggable({
     id: nodeId,
     disabled: isRenaming,
   });
 
-  // Setup droppable for all nodes (folders accept drops inside, notes allow reordering)
+  // Setup droppable — use a distinct ID to avoid collision with the draggable
+  // (same element, but dnd-kit needs separate IDs so the active draggable
+  // isn't detected as its own drop target by pointerWithin)
   const { isOver, setNodeRef: setDroppableRef } = useDroppable({
-    id: nodeId,
+    id: `drop-${nodeId}`,
     disabled: isRenaming,
   });
+
+  // Merge both refs onto the same DOM element
+  const setRef = useCallback(
+    (el: HTMLElement | null) => {
+      setDraggableRef(el);
+      setDroppableRef(el);
+    },
+    [setDraggableRef, setDroppableRef],
+  );
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -82,8 +93,7 @@ function DraggableTreeNode({
   };
 
   // When using DragOverlay, do NOT apply the CSS transform to the source element.
-  // The overlay follows the cursor; the source element should stay in place and just
-  // become semi-transparent to indicate "this item is being moved".
+  // The overlay follows the cursor; the source element stays in place with reduced opacity.
   const style: React.CSSProperties = isDragging ? { opacity: 0.4 } : {};
 
   if (isRenaming) {
@@ -122,7 +132,7 @@ function DraggableTreeNode({
 
   return (
     <Group
-      ref={setDroppableRef}
+      ref={setRef}
       gap={6}
       {...elementProps}
       {...draggableAttributes}
@@ -154,50 +164,11 @@ function DraggableTreeNode({
   );
 }
 
-/**
- * Custom TreeNode renderer that displays folders with expand/collapse icons
- * and notes with note icons. Clicking a note selects it, clicking a folder
- * expands/collapses it. Right-click shows context menu for rename/delete/create.
- */
-function renderNode(
-  payload: RenderTreeNodePayload,
-  tree: ReturnType<typeof useTree>,
-  activeNoteId: string | null,
-  setActiveNoteId: (id: string | null) => void,
-  renamingNodeId: string | null,
-  setRenamingNodeId: (id: string | null) => void,
-  isRenamingLoading: boolean,
-  onRenameSubmit: (id: string, newTitle: string) => void,
-  onDelete: (id: string) => void,
-  onCreateNote: (parentId: string, title: string, isFolder: boolean) => void
-) {
-  const { node } = payload;
-  const nodeId = node.value;
-
-  return (
-    <DraggableTreeNode
-      nodeId={nodeId}
-      payload={payload}
-      tree={tree}
-      activeNoteId={activeNoteId}
-      setActiveNoteId={setActiveNoteId}
-      renamingNodeId={renamingNodeId}
-      setRenamingNodeId={setRenamingNodeId}
-      isRenamingLoading={isRenamingLoading}
-      onRenameSubmit={onRenameSubmit}
-      onDelete={onDelete}
-      onCreateNote={onCreateNote}
-    />
-  );
-}
-
 export function NoteTree({
   notes,
   activeNoteId,
   setActiveNoteId,
   onNotesChanged,
-  isDragging: _isDragging,
-  draggedNoteId: _draggedNoteId,
 }: NoteTreeProps) {
   const tree = useTree({
     multiple: false,
@@ -208,77 +179,96 @@ export function NoteTree({
 
   const treeData = useMemo<TreeNodeData[]>(() => buildTree(notes), [notes]);
 
-  const handleRenameSubmit = async (id: string, newTitle: string) => {
-    setIsRenamingLoading(true);
-    try {
-      await renameNote({ id, title: newTitle });
-      setRenamingNodeId(null);
-      onNotesChanged();
-    } catch (err) {
-      console.error("Failed to rename note:", err);
-    } finally {
-      setIsRenamingLoading(false);
-    }
-  };
+  const handleRenameSubmit = useCallback(
+    async (id: string, newTitle: string) => {
+      setIsRenamingLoading(true);
+      try {
+        await renameNote({ id, title: newTitle });
+        setRenamingNodeId(null);
+        onNotesChanged();
+      } catch (err) {
+        console.error("Failed to rename note:", err);
+      } finally {
+        setIsRenamingLoading(false);
+      }
+    },
+    [onNotesChanged],
+  );
 
-  const handleDelete = async (id: string) => {
-    try {
-      const note = notes.find((n) => n.id === id);
-      if (note?.is_folder) {
-        // Delete entire tree for folders
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
         await deleteNoteTree(id);
-      } else {
-        // Delete single note
-        await deleteNoteTree(id);
+        if (activeNoteId === id) {
+          setActiveNoteId(null);
+        }
+        onNotesChanged();
+      } catch (err) {
+        console.error("Failed to delete note:", err);
       }
-      if (activeNoteId === id) {
-        setActiveNoteId(null);
-      }
-      onNotesChanged();
-    } catch (err) {
-      console.error("Failed to delete note:", err);
-    }
-  };
+    },
+    [activeNoteId, setActiveNoteId, onNotesChanged],
+  );
 
-  const handleCreateNote = async (
-    parentId: string,
-    title: string,
-    isFolder: boolean
-  ) => {
-    try {
-      const note = await createNote({
-        parentId,
-        title,
-        isFolder,
-      });
-      tree.expand(parentId);
-      if (!isFolder) {
-        setActiveNoteId(note.id);
+  const handleCreateNote = useCallback(
+    async (parentId: string, title: string, isFolder: boolean) => {
+      try {
+        const note = await createNote({
+          parentId,
+          title,
+          isFolder,
+        });
+        tree.expand(parentId);
+        if (!isFolder) {
+          setActiveNoteId(note.id);
+        }
+        onNotesChanged();
+      } catch (err) {
+        console.error("Failed to create note:", err);
       }
-      onNotesChanged();
-    } catch (err) {
-      console.error("Failed to create note:", err);
-    }
-  };
+    },
+    [tree, setActiveNoteId, onNotesChanged],
+  );
+
+  // Stabilise the renderNode callback with useCallback so Mantine's Tree does not
+  // remount all nodes on every render (which would destroy dnd-kit's internal state
+  // mid-drag and break the gesture).
+  const stableRenderNode = useCallback(
+    (payload: RenderTreeNodePayload) => {
+      const { node } = payload;
+      return (
+        <DraggableTreeNode
+          nodeId={node.value}
+          payload={payload}
+          tree={tree}
+          activeNoteId={activeNoteId}
+          setActiveNoteId={setActiveNoteId}
+          renamingNodeId={renamingNodeId}
+          setRenamingNodeId={setRenamingNodeId}
+          isRenamingLoading={isRenamingLoading}
+          onRenameSubmit={handleRenameSubmit}
+          onDelete={handleDelete}
+          onCreateNote={handleCreateNote}
+        />
+      );
+    },
+    [
+      tree,
+      activeNoteId,
+      setActiveNoteId,
+      renamingNodeId,
+      isRenamingLoading,
+      handleRenameSubmit,
+      handleDelete,
+      handleCreateNote,
+    ],
+  );
 
   return (
     <Tree
       data={treeData}
       tree={tree}
-      renderNode={(payload) =>
-        renderNode(
-          payload,
-          tree,
-          activeNoteId,
-          setActiveNoteId,
-          renamingNodeId,
-          setRenamingNodeId,
-          isRenamingLoading,
-          handleRenameSubmit,
-          handleDelete,
-          handleCreateNote
-        )
-      }
+      renderNode={stableRenderNode}
       classNames={classes}
     />
   );

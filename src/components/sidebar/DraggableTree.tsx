@@ -85,7 +85,8 @@ export function DraggableTree({
     }
 
     const draggedId = active.id as string;
-    const targetId = over.id as string;
+    // Droppable IDs use a "drop-" prefix to avoid collision with draggable IDs
+    const targetId = (over.id as string).replace(/^drop-/, "");
 
     // Dropped onto itself — no-op
     if (draggedId === targetId) {
@@ -184,8 +185,6 @@ export function DraggableTree({
         activeNoteId={activeNoteId}
         setActiveNoteId={setActiveNoteId}
         onNotesChanged={onNotesChanged}
-        isDragging={isDragging}
-        draggedNoteId={draggedNoteId}
       />
 
       <DragOverlay

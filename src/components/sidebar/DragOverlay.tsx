@@ -11,27 +11,26 @@ interface DragOverlayProps {
 
 /**
  * Visual feedback overlay showing what is being dragged.
- * Displayed near the cursor during drag operations.
+ * DndDragOverlay must always be mounted so dnd-kit knows to suppress
+ * the default transform on the source element. Only the children are conditional.
  */
 export function DragOverlay({
   isDragging,
   draggedTitle,
   isDraggingFolder,
 }: DragOverlayProps) {
-  if (!isDragging || !draggedTitle) {
-    return null;
-  }
-
   return (
     <DndDragOverlay>
-      <Group gap={6} className={classes.dragOverlay}>
-        {isDraggingFolder ? (
-          <IconFolder size={16} className={classes.folderIcon} />
-        ) : (
-          <IconNote size={16} className={classes.noteIcon} />
-        )}
-        <span className={classes.label}>{draggedTitle}</span>
-      </Group>
+      {isDragging && draggedTitle ? (
+        <Group gap={6} className={classes.dragOverlay}>
+          {isDraggingFolder ? (
+            <IconFolder size={16} className={classes.folderIcon} />
+          ) : (
+            <IconNote size={16} className={classes.noteIcon} />
+          )}
+          <span className={classes.label}>{draggedTitle}</span>
+        </Group>
+      ) : null}
     </DndDragOverlay>
   );
 }
