@@ -41,7 +41,7 @@ export function ContentArea({ activeNoteId, onNotesChanged }: ContentAreaProps) 
 
   if (!activeNoteId) {
     return (
-      <Center h="100%">
+      <Center style={{ flex: 1 }}>
         <Stack align="center" gap="sm">
           <IconNotes size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
           <Text c="dimmed" size="lg">
@@ -54,14 +54,14 @@ export function ContentArea({ activeNoteId, onNotesChanged }: ContentAreaProps) 
 
   if (loading) {
     return (
-      <Center h="100%">
+      <Center style={{ flex: 1 }}>
         <Loader size="sm" />
       </Center>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <NoteEditor
         key={activeNoteId}
         content={parsedContent}

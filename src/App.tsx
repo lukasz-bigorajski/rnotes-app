@@ -20,7 +20,7 @@ export default function App() {
         breakpoint: "sm",
         collapsed: { mobile: !opened },
       }}
-      padding="md"
+      padding={0}
     >
       <AppShell.Navbar p="sm">
         <Sidebar
@@ -30,7 +30,7 @@ export default function App() {
         />
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <ContentArea activeNoteId={activeNoteId} onNotesChanged={handleNotesChanged} />
       </AppShell.Main>
     </AppShell>
