@@ -1,15 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconNotes } from "@tabler/icons-react";
 import { NoteEditor } from "./editor/NoteEditor";
 import { useActiveNote } from "../hooks/useActiveNote";
+import { renameNote } from "../ipc/notes";
 import type { JSONContent } from "@tiptap/react";
 
 interface ContentAreaProps {
   activeNoteId: string | null;
+  onNotesChanged?: () => void;
 }
 
-export function ContentArea({ activeNoteId }: ContentAreaProps) {
+export function ContentArea({ activeNoteId, onNotesChanged }: ContentAreaProps) {
   const { note, loading, saveNote } = useActiveNote(activeNoteId);
 
   const parsedContent = useMemo<JSONContent | null>(() => {
@@ -23,6 +25,19 @@ export function ContentArea({ activeNoteId }: ContentAreaProps) {
       return null;
     }
   }, [note?.content]);
+
+  const handleTitleChange = useCallback(
+    async (newTitle: string) => {
+      if (!activeNoteId) return;
+      try {
+        await renameNote({ id: activeNoteId, title: newTitle });
+        onNotesChanged?.();
+      } catch (err) {
+        console.error("Failed to rename note:", err);
+      }
+    },
+    [activeNoteId, onNotesChanged],
+  );
 
   if (!activeNoteId) {
     return (
@@ -46,6 +61,15 @@ export function ContentArea({ activeNoteId }: ContentAreaProps) {
   }
 
   return (
-    <NoteEditor key={activeNoteId} content={parsedContent} noteId={activeNoteId} onSave={saveNote} />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <NoteEditor
+        key={activeNoteId}
+        content={parsedContent}
+        noteId={activeNoteId}
+        title={note?.title ?? "Untitled"}
+        onSave={saveNote}
+        onTitleChange={handleTitleChange}
+      />
+    </div>
   );
 }

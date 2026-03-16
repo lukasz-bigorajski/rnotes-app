@@ -13,6 +13,7 @@ import {
   IconArrowForwardUp,
   IconBlockquote,
   IconCode,
+  IconCodeDots,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import { useState } from "react";
@@ -136,6 +137,15 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         title="Blockquote"
       >
         <IconBlockquote size={16} />
+      </ActionIcon>
+
+      <ActionIcon
+        variant={editor.isActive("codeBlock") ? "filled" : "subtle"}
+        size="sm"
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        title="Code Block"
+      >
+        <IconCodeDots size={16} />
       </ActionIcon>
 
       <div className={classes.separator} />

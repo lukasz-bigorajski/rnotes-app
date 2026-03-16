@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Stack, Text, Button, Group } from "@mantine/core";
 import { IconPlus, IconFolder } from "@tabler/icons-react";
 import { createNote, listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
-import { useEffect } from "react";
 import { DraggableTree } from "./sidebar/DraggableTree";
 import { ArchivePanel } from "./sidebar/ArchivePanel";
 import { ArchiveToggle } from "./sidebar/ArchiveToggle";
@@ -11,9 +10,10 @@ import { ArchiveToggle } from "./sidebar/ArchiveToggle";
 interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
+  refreshRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function Sidebar({ activeNoteId, setActiveNoteId }: SidebarProps) {
+export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
@@ -31,6 +31,16 @@ export function Sidebar({ activeNoteId, setActiveNoteId }: SidebarProps) {
       console.error("Failed to load archived count:", err);
     }
   };
+
+  // Expose loadNotes via refreshRef so parent can trigger sidebar refresh
+  const loadNotesRef = useRef(loadNotes);
+  loadNotesRef.current = loadNotes;
+
+  useEffect(() => {
+    if (refreshRef) {
+      refreshRef.current = () => loadNotesRef.current();
+    }
+  }, [refreshRef]);
 
   useEffect(() => {
     loadNotes();
