@@ -1,6 +1,11 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { Details, DetailsSummary, DetailsContent } from "@tiptap/extension-details";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { createLowlight, common } from "lowlight";
+import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
 import { EditorToolbar } from "./EditorToolbar";
 import { useAutoSave } from "../../hooks/useAutoSave";
@@ -8,6 +13,8 @@ import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
 
 import classes from "./NoteEditor.module.css";
+
+const lowlight = createLowlight(common);
 
 interface NoteEditorProps {
   content: JSONContent | null;
@@ -45,11 +52,26 @@ export function NoteEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        codeBlock: false,
         link: {
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
         },
       }),
+      CodeBlockLowlight.extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(CodeBlockNodeView);
+        },
+      }).configure({
+        lowlight,
+        defaultLanguage: "plaintext",
+      }),
+      Details.configure({
+        persist: true,
+        HTMLAttributes: { class: "details-node" },
+      }),
+      DetailsSummary,
+      DetailsContent,
       Placeholder.configure({
         placeholder: "Start writing…",
       }),

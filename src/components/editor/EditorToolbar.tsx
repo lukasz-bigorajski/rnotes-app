@@ -15,6 +15,7 @@ import {
   IconCode,
   IconCodeDots,
   IconListDetails,
+  IconChevronDown,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
@@ -244,6 +245,15 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
           title="Code Block"
         >
           <IconCodeDots size={16} />
+        </ActionIcon>
+
+        <ActionIcon
+          variant={editor.isActive("details") ? "filled" : "subtle"}
+          size="sm"
+          onClick={() => editor.chain().focus().setDetails().run()}
+          title="Collapsible Section"
+        >
+          <IconChevronDown size={16} />
         </ActionIcon>
 
         <div className={classes.separator} />

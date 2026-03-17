@@ -176,3 +176,208 @@
   padding: 0;
   line-height: 1.4;
 }
+
+/* ── Code block: language selector overlay ── */
+.editorContent :global(.tiptap pre) {
+  position: relative;
+}
+
+.editorContent :global(.tiptap .code-block-wrapper) {
+  position: relative;
+}
+
+.editorContent :global(.tiptap .code-block-language-select) {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #a6adc8;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  appearance: auto;
+}
+
+.editorContent :global(.tiptap .code-block-language-select:hover) {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.editorContent :global(.tiptap .code-block-language-select option) {
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+}
+
+/* ── Syntax highlighting tokens (Catppuccin-inspired, works on dark bg) ── */
+.editorContent :global(.tiptap pre code .hljs-keyword),
+.editorContent :global(.tiptap pre code .hljs-selector-tag),
+.editorContent :global(.tiptap pre code .hljs-built_in),
+.editorContent :global(.tiptap pre code .hljs-name) {
+  color: #cba6f7;
+}
+
+.editorContent :global(.tiptap pre code .hljs-string),
+.editorContent :global(.tiptap pre code .hljs-addition) {
+  color: #a6e3a1;
+}
+
+.editorContent :global(.tiptap pre code .hljs-number),
+.editorContent :global(.tiptap pre code .hljs-literal) {
+  color: #fab387;
+}
+
+.editorContent :global(.tiptap pre code .hljs-comment),
+.editorContent :global(.tiptap pre code .hljs-quote) {
+  color: #6c7086;
+  font-style: italic;
+}
+
+.editorContent :global(.tiptap pre code .hljs-type),
+.editorContent :global(.tiptap pre code .hljs-class .hljs-title),
+.editorContent :global(.tiptap pre code .hljs-title) {
+  color: #f9e2af;
+}
+
+.editorContent :global(.tiptap pre code .hljs-variable),
+.editorContent :global(.tiptap pre code .hljs-template-variable) {
+  color: #f38ba8;
+}
+
+.editorContent :global(.tiptap pre code .hljs-attr),
+.editorContent :global(.tiptap pre code .hljs-attribute) {
+  color: #89b4fa;
+}
+
+.editorContent :global(.tiptap pre code .hljs-function) {
+  color: #89b4fa;
+}
+
+.editorContent :global(.tiptap pre code .hljs-regexp) {
+  color: #f5c2e7;
+}
+
+.editorContent :global(.tiptap pre code .hljs-symbol),
+.editorContent :global(.tiptap pre code .hljs-bullet),
+.editorContent :global(.tiptap pre code .hljs-link) {
+  color: #94e2d5;
+}
+
+.editorContent :global(.tiptap pre code .hljs-deletion) {
+  color: #f38ba8;
+}
+
+.editorContent :global(.tiptap pre code .hljs-meta),
+.editorContent :global(.tiptap pre code .hljs-meta .hljs-keyword) {
+  color: #fab387;
+}
+
+.editorContent :global(.tiptap pre code .hljs-params) {
+  color: #cdd6f4;
+}
+
+.editorContent :global(.tiptap pre code .hljs-tag) {
+  color: #cdd6f4;
+}
+
+.editorContent :global(.tiptap pre code .hljs-section),
+.editorContent :global(.tiptap pre code .hljs-selector-id),
+.editorContent :global(.tiptap pre code .hljs-selector-class) {
+  color: #89b4fa;
+  font-weight: bold;
+}
+
+.editorContent :global(.tiptap pre code .hljs-emphasis) {
+  font-style: italic;
+}
+
+.editorContent :global(.tiptap pre code .hljs-strong) {
+  font-weight: bold;
+}
+
+/* ── Collapsible sections (details/summary) ── */
+.editorContent :global(.tiptap [data-type="details"]) {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+/* Toggle button inside details node */
+.editorContent :global(.tiptap [data-type="details"] > button) {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  color: var(--mantine-color-dimmed);
+}
+
+.editorContent :global(.tiptap [data-type="details"] > button::before) {
+  content: "\25B6";
+  font-size: 0.65em;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.editorContent :global(.tiptap [data-type="details"].is-open > button::before) {
+  transform: rotate(90deg);
+}
+
+.editorContent :global(.tiptap [data-type="details"]) {
+  position: relative;
+}
+
+.editorContent :global(.tiptap [data-type="details"] summary) {
+  padding: 8px 12px 8px 30px;
+  cursor: text;
+  font-weight: 600;
+  display: block;
+}
+
+.editorContent :global(.tiptap [data-type="details"] [data-type="detailsContent"]) {
+  padding: 8px 12px;
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+/* Hidden state for detailsContent is handled by the extension via hidden attr */
+.editorContent :global(.tiptap [data-type="details"] [data-type="detailsContent"][hidden]) {
+  display: none;
+}
+
+/* Light mode details */
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap [data-type="details"]) {
+  background-color: var(--mantine-color-gray-0);
+}
+
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap [data-type="details"] summary) {
+  background-color: var(--mantine-color-gray-1);
+}
+
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap [data-type="details"] summary:hover) {
+  background-color: var(--mantine-color-gray-2);
+}
+
+/* Dark mode details */
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap [data-type="details"]) {
+  background-color: var(--mantine-color-dark-6);
+}
+
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap [data-type="details"] summary) {
+  background-color: var(--mantine-color-dark-5);
+}
+
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap [data-type="details"] summary:hover) {
+  background-color: var(--mantine-color-dark-4);
+}
