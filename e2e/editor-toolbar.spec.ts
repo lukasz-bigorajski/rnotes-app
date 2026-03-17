@@ -53,7 +53,7 @@ test("strikethrough toggle", async ({ page }) => {
 test("code toggle", async ({ page }) => {
   await typeInEditor(page, "hello world");
   await selectAllEditorText(page);
-  await page.getByTitle("Code").click();
+  await page.getByTitle("Code", { exact: true }).click();
   await expect(page.locator("[contenteditable] code")).toHaveText(
     "hello world",
   );

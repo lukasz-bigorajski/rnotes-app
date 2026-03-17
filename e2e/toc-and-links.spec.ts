@@ -40,28 +40,16 @@ test("ToC: no headings shows alert", async ({ page }) => {
 });
 
 test("ToC: inserts table of contents from headings", async ({ page }) => {
-  // Type a heading and some content
-  await typeInEditor(page, "Introduction");
-  await selectAllEditorText(page);
-  await page.getByTitle("Heading 1").click();
-
-  // Move to end of heading and add more content
-  await page.locator("[contenteditable] h1").press("End");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("Section One");
-  await selectAllEditorText(page);
-  // We need to only select "Section One" — easier to click on it
+  // Use TipTap's markdown input rules: "# " at start of line creates H1
   await page.locator("[contenteditable]").click();
-  await page.keyboard.press("End");
-  // Select the last line
-  await page.keyboard.press("Home");
-  await page.keyboard.press("Shift+End");
-  await page.getByTitle("Heading 2").click();
+  await page.keyboard.type("# Introduction");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("## Section One");
 
   // Generate ToC
   await page.getByTitle("Generate Table of Contents").click();
 
-  // Check the ToC block is present
+  // Check the ToC block is present with both headings
   const toc = page.locator('[data-type="toc"]');
   await expect(toc).toBeVisible();
   await expect(toc).toContainText("Introduction");
@@ -69,10 +57,9 @@ test("ToC: inserts table of contents from headings", async ({ page }) => {
 });
 
 test("ToC: replaces existing table of contents on re-generate", async ({ page }) => {
-  // Add a heading
-  await typeInEditor(page, "My Heading");
-  await selectAllEditorText(page);
-  await page.getByTitle("Heading 1").click();
+  // Add a heading using TipTap input rule
+  await page.locator("[contenteditable]").click();
+  await page.keyboard.type("# My Heading");
 
   // Generate ToC once
   await page.getByTitle("Generate Table of Contents").click();
@@ -140,6 +127,8 @@ test("link button: floating dialog escape closes it", async ({ page }) => {
   const floatingDialog = page.locator('[data-testid="floating-link-dialog"]');
   await expect(floatingDialog).toBeVisible();
 
+  // Click the input to ensure it has focus before pressing Escape
+  await floatingDialog.locator("input").click();
   await page.keyboard.press("Escape");
   await expect(floatingDialog).not.toBeVisible();
 });

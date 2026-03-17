@@ -11,7 +11,7 @@ test.describe("Editable note title", () => {
 
   test("new note auto-focuses title with Untitled selected", async ({ page }) => {
     await page.goto("/");
-    await page.getByText("Note").click();
+    await page.getByRole("button", { name: "Note", exact: true }).click();
 
     const titleInput = page.getByTestId("note-title-input");
     await expect(titleInput).toBeVisible();
@@ -56,13 +56,9 @@ test.describe("Sticky toolbar", () => {
       if (wrapper) wrapper.scrollTop = wrapper.scrollHeight;
     });
 
-    // The toolbar should still be visible (sticky)
-    const toolbar = page.locator('[class*="toolbar"]');
-    await expect(toolbar).toBeVisible();
-    const toolbarBox = await toolbar.boundingBox();
-    expect(toolbarBox).not.toBeNull();
-    // Toolbar top should be near the top of the editor wrapper (sticky)
-    expect(toolbarBox!.y).toBeGreaterThanOrEqual(0);
+    // The toolbar should still be visible (sticky) — check a toolbar button is in viewport
+    const boldButton = page.getByTitle("Bold");
+    await expect(boldButton).toBeInViewport();
   });
 });
 
@@ -93,6 +89,10 @@ test.describe("Code block button", () => {
 test.describe("Blockquote and code block visual styling", () => {
   test("blockquote has left border styling", async ({ page }) => {
     await page.goto("/");
+    // Ensure light color scheme CSS variables are active
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-mantine-color-scheme", "light");
+    });
     await page.getByText("Test Note").click();
     await page.locator("[contenteditable]").click();
     await page.keyboard.type("quoted text");
@@ -110,6 +110,10 @@ test.describe("Blockquote and code block visual styling", () => {
 
   test("code block has distinct background", async ({ page }) => {
     await page.goto("/");
+    // Ensure light color scheme CSS variables are active
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-mantine-color-scheme", "light");
+    });
     await page.getByText("Test Note").click();
     await page.locator("[contenteditable]").click();
     await page.keyboard.type("const x = 1;");

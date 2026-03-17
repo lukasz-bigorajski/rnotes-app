@@ -30,7 +30,7 @@ export default function App() {
         />
       </AppShell.Navbar>
 
-      <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100dvh" }}>
         <ContentArea activeNoteId={activeNoteId} onNotesChanged={handleNotesChanged} />
       </AppShell.Main>
     </AppShell>

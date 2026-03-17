@@ -33,12 +33,14 @@
   padding: 16px;
 }
 
-.editorContent .tiptap {
+/* TipTap adds its own class names globally — use :global() to avoid CSS Modules hashing them */
+
+.editorContent :global(.tiptap) {
   outline: none;
   min-height: 200px;
 }
 
-.editorContent .tiptap p.is-editor-empty:first-child::before {
+.editorContent :global(.tiptap p.is-editor-empty:first-child::before) {
   color: var(--mantine-color-dimmed);
   content: attr(data-placeholder);
   float: left;
@@ -47,8 +49,8 @@
 }
 
 /* Blockquote styling */
-.editorContent .tiptap blockquote {
-  border-left: 4px solid var(--mantine-color-blue-5);
+.editorContent :global(.tiptap blockquote) {
+  border-left: 4px solid var(--mantine-color-blue-5, #339af0);
   margin: 8px 0;
   padding: 8px 12px;
   border-radius: 0 var(--mantine-radius-sm) var(--mantine-radius-sm) 0;
@@ -56,14 +58,16 @@
 }
 
 /* Code block styling */
-.editorContent .tiptap pre {
+.editorContent :global(.tiptap pre) {
   border-radius: var(--mantine-radius-sm);
   padding: 12px 16px;
   margin: 8px 0;
   overflow-x: auto;
+  background-color: #1e1e2e;
+  color: #cdd6f4;
 }
 
-.editorContent .tiptap pre code {
+.editorContent :global(.tiptap pre code) {
   background: none;
   color: inherit;
   font-size: 0.875rem;
@@ -73,7 +77,7 @@
 }
 
 /* Inline code styling */
-.editorContent .tiptap code {
+.editorContent :global(.tiptap code) {
   padding: 2px 5px;
   border-radius: 3px;
   font-size: 0.875em;
@@ -81,39 +85,39 @@
 }
 
 /* Light mode */
-:global([data-mantine-color-scheme="light"]) .editorContent .tiptap blockquote {
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap blockquote) {
   background-color: var(--mantine-color-blue-0);
 }
 
-:global([data-mantine-color-scheme="light"]) .editorContent .tiptap pre {
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap pre) {
   background-color: #1e1e2e;
   color: #cdd6f4;
   border: 1px solid #313244;
 }
 
-:global([data-mantine-color-scheme="light"]) .editorContent .tiptap code {
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap code) {
   background-color: var(--mantine-color-gray-1);
   color: var(--mantine-color-red-7);
 }
 
 /* Dark mode */
-:global([data-mantine-color-scheme="dark"]) .editorContent .tiptap blockquote {
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap blockquote) {
   background-color: var(--mantine-color-dark-5);
 }
 
-:global([data-mantine-color-scheme="dark"]) .editorContent .tiptap pre {
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap pre) {
   background-color: #11111b;
   color: #cdd6f4;
   border: 1px solid var(--mantine-color-dark-4);
 }
 
-:global([data-mantine-color-scheme="dark"]) .editorContent .tiptap code {
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap code) {
   background-color: var(--mantine-color-dark-5);
   color: var(--mantine-color-red-4);
 }
 
 /* Table of Contents styling */
-.editorContent .tiptap [data-type="toc"] {
+.editorContent :global(.tiptap [data-type="toc"]) {
   border: 1px solid var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-sm);
   padding: 10px 14px;
@@ -122,7 +126,7 @@
   user-select: none;
 }
 
-.editorContent .tiptap [data-type="toc"] .toc-title {
+.editorContent :global(.tiptap [data-type="toc"] .toc-title) {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -131,43 +135,43 @@
   margin-bottom: 6px;
 }
 
-.editorContent .tiptap [data-type="toc"] ul {
+.editorContent :global(.tiptap [data-type="toc"] ul) {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.editorContent .tiptap [data-type="toc"] li {
+.editorContent :global(.tiptap [data-type="toc"] li) {
   margin: 2px 0;
   padding: 0;
   line-height: 1.4;
   font-size: 0.875rem;
 }
 
-.editorContent .tiptap [data-type="toc"] a {
+.editorContent :global(.tiptap [data-type="toc"] a) {
   color: var(--mantine-color-dimmed);
   text-decoration: none;
   cursor: pointer;
 }
 
-.editorContent .tiptap [data-type="toc"] a:hover {
+.editorContent :global(.tiptap [data-type="toc"] a:hover) {
   color: var(--mantine-color-text);
   text-decoration: underline;
 }
 
 /* Compact list spacing */
-.editorContent .tiptap ul,
-.editorContent .tiptap ol {
+.editorContent :global(.tiptap ul),
+.editorContent :global(.tiptap ol) {
   margin: 2px 0;
   padding-left: 20px;
 }
 
-.editorContent .tiptap li {
+.editorContent :global(.tiptap li) {
   margin: 0;
   padding: 0;
 }
 
-.editorContent .tiptap li p {
+.editorContent :global(.tiptap li p) {
   margin: 0;
   padding: 0;
   line-height: 1.4;

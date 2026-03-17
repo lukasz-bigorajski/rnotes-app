@@ -1,5 +1,5 @@
 import { TextInput, Loader } from "@mantine/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface InlineRenameInputProps {
   initialValue: string;
@@ -16,15 +16,22 @@ export function InlineRenameInput({
 }: InlineRenameInputProps) {
   const [value, setValue] = useState(initialValue.trim());
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ignore blur for a short window after mount — Mantine Menu restores focus to its
+  // trigger after an item is clicked, which would immediately blur the rename input.
+  const ignoreBlur = useRef(true);
 
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
+    const timer = setTimeout(() => {
+      ignoreBlur.current = false;
+    }, 150);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.stopPropagation();
       const trimmed = value.trim();
@@ -35,9 +42,10 @@ export function InlineRenameInput({
       e.stopPropagation();
       onCancel();
     }
-  };
+  }, [value, onCommit, onCancel]);
 
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
+    if (ignoreBlur.current) return;
     const trimmed = value.trim();
     if (trimmed && trimmed !== initialValue.trim()) {
       onCommit(trimmed);
@@ -46,7 +54,7 @@ export function InlineRenameInput({
     } else {
       onCancel();
     }
-  };
+  }, [value, initialValue, onCommit, onCancel]);
 
   return (
     <TextInput
