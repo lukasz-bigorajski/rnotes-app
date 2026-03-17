@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Review lessons at session start for relevant project
 - Never mark a task complete without proving it works
 - Ask yourself: "Would a staff engineer approve this?" Run tests, check logs, demonstrate correctness
+- Verify change with running all tests (rust + playwright)
 
 ## What This Is
 
