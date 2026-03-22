@@ -1,0 +1,44 @@
+use tauri::AppHandle;
+
+use crate::services::assets as asset_service;
+
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"];
+
+fn is_allowed_image_ext(filename: &str) -> bool {
+    let ext = std::path::Path::new(filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    ALLOWED_EXTENSIONS.contains(&ext.as_str())
+}
+
+/// Save an image file to the note's asset directory.
+/// Returns the relative asset path (e.g. `assets/{note_id}/{uuid}.png`).
+#[tauri::command]
+pub fn save_image(
+    app: AppHandle,
+    note_id: String,
+    filename: String,
+    data: Vec<u8>,
+) -> Result<String, String> {
+    if !is_allowed_image_ext(&filename) {
+        return Err(format!("File type not allowed: {}", filename));
+    }
+    asset_service::save_asset(&app, &note_id, &filename, data).map_err(|e| e.to_string())
+}
+
+/// Convert a relative asset path to a file:// URL for use in <img src>.
+#[tauri::command]
+pub fn get_image_url(app: AppHandle, asset_path: String) -> Result<String, String> {
+    use crate::services::config_service;
+
+    let data_dir = config_service::resolve_data_dir(&app).map_err(|e| e.to_string())?;
+    let full_path = data_dir.join(&asset_path);
+
+    // Use the Tauri asset protocol so the WebView can load local files.
+    // convertFileSrc() on the frontend produces "asset://localhost/<absolute_path>".
+    let url = format!("asset://localhost{}", full_path.to_string_lossy());
+
+    Ok(url)
+}

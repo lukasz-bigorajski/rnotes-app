@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Details, DetailsSummary, DetailsContent } from "@tiptap/extension-details";
+import Image from "@tiptap/extension-image";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
@@ -11,10 +12,38 @@ import { EditorToolbar } from "./EditorToolbar";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
+import { getImageUrl } from "../../ipc/assets";
 
 import classes from "./NoteEditor.module.css";
 
 const lowlight = createLowlight(common);
+
+/**
+ * Traverse TipTap JSON and resolve relative asset paths to absolute URLs.
+ * Relative paths look like `assets/{note_id}/{filename}`.
+ */
+async function resolveImageUrls(content: JSONContent): Promise<JSONContent> {
+  const RELATIVE_ASSET_RE = /^assets\//;
+
+  async function walk(node: JSONContent): Promise<JSONContent> {
+    if (node.type === "image" && node.attrs?.src && RELATIVE_ASSET_RE.test(node.attrs.src as string)) {
+      try {
+        const url = await getImageUrl(node.attrs.src as string);
+        return { ...node, attrs: { ...node.attrs, src: url } };
+      } catch {
+        // If resolution fails keep the original src; the image just won't load.
+        return node;
+      }
+    }
+    if (node.content) {
+      const resolved = await Promise.all(node.content.map(walk));
+      return { ...node, content: resolved };
+    }
+    return node;
+  }
+
+  return walk(content);
+}
 
 interface NoteEditorProps {
   content: JSONContent | null;
@@ -76,6 +105,11 @@ export function NoteEditor({
         placeholder: "Start writing…",
       }),
       TocExtension,
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { style: "max-width: 100%;" },
+      }),
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
@@ -86,6 +120,23 @@ export function NoteEditor({
     noteId: noteId ?? null,
     onSave: onSave ?? (() => {}),
   });
+
+  // When a note is loaded, resolve any relative asset paths to absolute URLs.
+  useEffect(() => {
+    if (!editor || !content) return;
+    let cancelled = false;
+
+    resolveImageUrls(content).then((resolved) => {
+      if (!cancelled && editor) {
+        editor.commands.setContent(resolved, { emitUpdate: false });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // Only re-run when the note itself changes, not on every content update.
+  }, [noteId]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +173,7 @@ export function NoteEditor({
 
   return (
     <div className={classes.editorWrapper}>
-      <EditorToolbar editor={editor} />
+      <EditorToolbar editor={editor} noteId={noteId} />
       <div className={classes.titleRow}>
         <input
           ref={titleInputRef}

@@ -161,6 +161,22 @@ async function installTauriMock(page: Page) {
             return Promise.resolve();
           }
 
+          case "save_image": {
+            // Return a fake relative asset path in the test environment.
+            const noteId = args?.noteId as string;
+            const filename = args?.filename as string;
+            const ext = filename.split(".").pop() ?? "png";
+            return Promise.resolve(`assets/${noteId}/mock-image.${ext}`);
+          }
+
+          case "get_image_url": {
+            // Return a placeholder data-uri URL for test environment display.
+            const assetPath = args?.assetPath as string;
+            return Promise.resolve(
+              `data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7#${assetPath}`,
+            );
+          }
+
           default:
             console.warn(`Unhandled Tauri command: ${cmd}`, args);
             return Promise.resolve();

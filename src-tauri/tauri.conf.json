@@ -10,6 +10,12 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**"]
+      }
+    },
     "windows": [
       {
         "title": "rnotes",

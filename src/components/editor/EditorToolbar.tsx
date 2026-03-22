@@ -16,15 +16,18 @@ import {
   IconCodeDots,
   IconListDetails,
   IconChevronDown,
+  IconPhoto,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import classes from "./EditorToolbar.module.css";
 import type { TocHeading } from "./TocExtension";
+import { saveImage, getImageUrl } from "../../ipc/assets";
 
 interface EditorToolbarProps {
   editor: Editor;
+  noteId?: string | null;
 }
 
 function slugify(text: string): string {
@@ -57,7 +60,7 @@ function extractHeadings(doc: JSONContent): TocHeading[] {
   return headings;
 }
 
-export function EditorToolbar({ editor }: EditorToolbarProps) {
+export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpened, setLinkOpened] = useState(false);
   const [floatingLink, setFloatingLink] = useState(false);
@@ -111,6 +114,36 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       setFloatingLink(true);
     }
   };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const insertImage = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !noteId) {
+        // Reset so the same file can be selected again later.
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const data = new Uint8Array(buffer);
+        const assetPath = await saveImage({ noteId, filename: file.name, data });
+        const imageUrl = await getImageUrl(assetPath);
+        editor.chain().focus().setImage({ src: imageUrl, alt: file.name }).run();
+      } catch (err) {
+        console.error("Failed to insert image:", err);
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [editor, noteId],
+  );
 
   const generateToc = () => {
     const doc = editor.getJSON();
@@ -299,6 +332,17 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
           <IconListDetails size={16} />
         </ActionIcon>
 
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          onClick={insertImage}
+          disabled={!noteId}
+          title="Insert Image"
+          data-testid="insert-image-button"
+        >
+          <IconPhoto size={16} />
+        </ActionIcon>
+
         <div className={classes.separator} />
 
         <ActionIcon
@@ -347,6 +391,16 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
           </div>
         </Portal>
       )}
+
+      {/* Hidden file input for image selection */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        style={{ display: "none" }}
+        onChange={handleFileChange}
+        data-testid="image-file-input"
+      />
     </>
   );
 }

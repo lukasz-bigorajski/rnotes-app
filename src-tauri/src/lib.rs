@@ -38,6 +38,8 @@ pub fn run() {
             commands::note_commands::move_note,
             commands::note_commands::restore_note,
             commands::config_commands::get_config,
+            commands::assets::save_image,
+            commands::assets::get_image_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
