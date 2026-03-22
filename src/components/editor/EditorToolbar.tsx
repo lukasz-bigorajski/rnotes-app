@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Popover, Portal, TextInput } from "@mantine/core";
+import { ActionIcon, Group, Menu, Popover, Portal, Text, TextInput } from "@mantine/core";
 import {
   IconBold,
   IconItalic,
@@ -17,6 +17,7 @@ import {
   IconListDetails,
   IconChevronDown,
   IconPhoto,
+  IconTable,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
@@ -288,6 +289,83 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
         >
           <IconChevronDown size={16} />
         </ActionIcon>
+
+        <div className={classes.separator} />
+
+        <Menu position="bottom-start" withinPortal>
+          <Menu.Target>
+            <ActionIcon
+              variant={editor.isActive("table") ? "filled" : "subtle"}
+              size="sm"
+              title="Table"
+              data-testid="table-menu-button"
+            >
+              <IconTable size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+              data-testid="insert-table-item"
+            >
+              Insert Table
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              disabled={!editor.can().addRowBefore()}
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              data-testid="add-row-before-item"
+            >
+              Add Row Before
+            </Menu.Item>
+            <Menu.Item
+              disabled={!editor.can().addRowAfter()}
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              data-testid="add-row-after-item"
+            >
+              Add Row After
+            </Menu.Item>
+            <Menu.Item
+              disabled={!editor.can().deleteRow()}
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              data-testid="delete-row-item"
+            >
+              Delete Row
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              disabled={!editor.can().addColumnBefore()}
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              data-testid="add-column-before-item"
+            >
+              Add Column Before
+            </Menu.Item>
+            <Menu.Item
+              disabled={!editor.can().addColumnAfter()}
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              data-testid="add-column-after-item"
+            >
+              Add Column After
+            </Menu.Item>
+            <Menu.Item
+              disabled={!editor.can().deleteColumn()}
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              data-testid="delete-column-item"
+            >
+              Delete Column
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              disabled={!editor.can().deleteTable()}
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              data-testid="delete-table-item"
+            >
+              <Text c="red" size="sm" component="span">
+                Delete Table
+              </Text>
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
 
         <div className={classes.separator} />
 

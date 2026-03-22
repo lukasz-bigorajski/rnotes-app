@@ -4,6 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Details, DetailsSummary, DetailsContent } from "@tiptap/extension-details";
 import Image from "@tiptap/extension-image";
+import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
@@ -110,6 +111,10 @@ export function NoteEditor({
         allowBase64: false,
         HTMLAttributes: { style: "max-width: 100%;" },
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,

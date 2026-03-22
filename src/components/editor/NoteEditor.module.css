@@ -298,6 +298,60 @@
   font-weight: bold;
 }
 
+/* ── Tables ── */
+.editorContent :global(.tiptap .tableWrapper) {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.editorContent :global(.tiptap table) {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.editorContent :global(.tiptap table td),
+.editorContent :global(.tiptap table th) {
+  border: 1px solid var(--mantine-color-default-border, #ced4da);
+  padding: 8px 12px;
+  min-width: 100px;
+  vertical-align: top;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.editorContent :global(.tiptap table th) {
+  font-weight: 600;
+  text-align: left;
+}
+
+.editorContent :global(.tiptap table .selectedCell::after) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--mantine-color-blue-1, rgba(51, 154, 240, 0.15));
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Light mode table */
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap table th) {
+  background-color: var(--mantine-color-gray-1);
+}
+
+:global([data-mantine-color-scheme="light"]) .editorContent :global(.tiptap table .selectedCell::after) {
+  background: rgba(51, 154, 240, 0.2);
+}
+
+/* Dark mode table */
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap table th) {
+  background-color: var(--mantine-color-dark-5);
+}
+
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap table .selectedCell::after) {
+  background: rgba(51, 154, 240, 0.25);
+}
+
 /* ── Embedded images ── */
 .editorContent :global(.tiptap img) {
   display: block;
