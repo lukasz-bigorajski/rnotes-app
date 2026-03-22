@@ -40,6 +40,8 @@ pub fn run() {
             commands::config_commands::get_config,
             commands::assets::save_image,
             commands::assets::get_image_url,
+            commands::task_commands::get_note_tasks,
+            commands::task_commands::get_all_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

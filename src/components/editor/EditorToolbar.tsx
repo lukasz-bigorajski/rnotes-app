@@ -8,6 +8,7 @@ import {
   IconH3,
   IconList,
   IconListNumbers,
+  IconListCheck,
   IconLink,
   IconArrowBackUp,
   IconArrowForwardUp,
@@ -261,6 +262,16 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
           title="Ordered List"
         >
           <IconListNumbers size={16} />
+        </ActionIcon>
+
+        <ActionIcon
+          variant={editor.isActive("taskList") ? "filled" : "subtle"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          title="Task List"
+          data-testid="task-list-button"
+        >
+          <IconListCheck size={16} />
         </ActionIcon>
 
         <ActionIcon

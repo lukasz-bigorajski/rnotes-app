@@ -177,6 +177,16 @@ async function installTauriMock(page: Page) {
             );
           }
 
+          case "get_note_tasks": {
+            // Return empty task list in the mock environment.
+            return Promise.resolve([]);
+          }
+
+          case "get_all_tasks": {
+            // Return empty task list in the mock environment.
+            return Promise.resolve([]);
+          }
+
           default:
             console.warn(`Unhandled Tauri command: ${cmd}`, args);
             return Promise.resolve();

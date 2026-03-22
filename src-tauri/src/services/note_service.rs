@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::db::{fts, notes};
 use crate::db::notes::{Note, NoteRow};
 use crate::error::{AppError, AppResult};
+use crate::services::task_service;
 
 fn now_ms() -> i64 {
     let dur = std::time::SystemTime::now()
@@ -67,6 +68,10 @@ pub fn update_note(
     notes::update(&tx, id, title, content, now)?;
     fts::upsert(&tx, id, title, plain_text)?;
     tx.commit()?;
+
+    // Sync tasks from content (outside the main transaction — uses its own)
+    task_service::sync_tasks(conn, id, content)?;
+
     Ok(())
 }
 

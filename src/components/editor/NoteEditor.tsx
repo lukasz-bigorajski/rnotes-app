@@ -5,6 +5,8 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Details, DetailsSummary, DetailsContent } from "@tiptap/extension-details";
 import Image from "@tiptap/extension-image";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
@@ -115,6 +117,8 @@ export function NoteEditor({
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
