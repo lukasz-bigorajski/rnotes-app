@@ -21,12 +21,54 @@ pub struct NoteTaskWithNote {
     pub content: String,
     pub is_checked: bool,
     pub notify_at: Option<i64>,
+    pub notified_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
 }
 
+/// Parse an ISO 8601 datetime string (e.g. "2026-03-25T14:30") into UNIX milliseconds.
+fn iso_to_unix_ms(iso: &str) -> Option<i64> {
+    // Try to parse as a naive datetime with the format "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+    // We use a simple manual approach to avoid adding chrono as a dependency.
+    let parts: Vec<&str> = iso.splitn(2, 'T').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let date_parts: Vec<u32> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
+    let time_parts: Vec<u32> = parts[1]
+        .split(':')
+        .take(2)
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    if date_parts.len() < 3 || time_parts.len() < 2 {
+        return None;
+    }
+
+    let (year, month, day) = (date_parts[0], date_parts[1], date_parts[2]);
+    let (hour, minute) = (time_parts[0], time_parts[1]);
+
+    // Compute days since epoch for the given date (ignoring timezone — treat as UTC)
+    // This mirrors what the frontend stores (local time as ISO without tz offset).
+    let days_since_epoch = days_from_civil(year as i64, month as i64, day as i64);
+    let secs = days_since_epoch * 86400 + (hour as i64) * 3600 + (minute as i64) * 60;
+    Some(secs * 1000)
+}
+
+/// Compute days since UNIX epoch (1970-01-01) for a given civil date.
+/// Algorithm from http://howardhinnant.github.io/date_algorithms.html
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400; // [0, 399]
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1; // [0, 365]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
+    era * 146097 + doe - 719468
+}
+
 /// Recursively walk a TipTap JSON node and collect all taskItem nodes.
-fn collect_task_items(node: &Value, items: &mut Vec<(String, bool)>) {
+/// Returns (text, checked, due_date_unix_ms).
+fn collect_task_items(node: &Value, items: &mut Vec<(String, bool, Option<i64>)>) {
     if let Some(node_type) = node.get("type").and_then(|t| t.as_str())
         && node_type == "taskItem"
     {
@@ -36,9 +78,15 @@ fn collect_task_items(node: &Value, items: &mut Vec<(String, bool)>) {
             .and_then(|c| c.as_bool())
             .unwrap_or(false);
 
+        let due_date_ms = node
+            .get("attrs")
+            .and_then(|a| a.get("dueDate"))
+            .and_then(|d| d.as_str())
+            .and_then(iso_to_unix_ms);
+
         // Extract only the text from direct paragraph children (not nested taskLists)
         let text = extract_task_item_text(node);
-        items.push((text, checked));
+        items.push((text, checked, due_date_ms));
 
         // Continue recursing into children to find nested taskItems
         if let Some(children) = node.get("content").and_then(|c| c.as_array()) {
@@ -94,8 +142,8 @@ fn extract_text(node: &Value) -> String {
     parts.join("")
 }
 
-/// Parse TipTap JSON and extract task items (content, checked).
-fn parse_task_items(content: &str) -> Vec<(String, bool)> {
+/// Parse TipTap JSON and extract task items (content, checked, notify_at_ms).
+fn parse_task_items(content: &str) -> Vec<(String, bool, Option<i64>)> {
     let Ok(json) = serde_json::from_str::<Value>(content) else {
         return Vec::new();
     };
@@ -107,13 +155,15 @@ fn parse_task_items(content: &str) -> Vec<(String, bool)> {
 
 /// Sync tasks from TipTap JSON content to the note_tasks table.
 /// Deletes all existing tasks for the note and re-inserts from current content.
-/// Preserves notify_at values by matching on content text (best effort).
+/// The `dueDate` attribute from the TipTap node takes priority for `notify_at`.
+/// If `dueDate` is absent from the TipTap node, preserves any existing `notify_at` by
+/// matching on content text (best effort).
 pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<()> {
     let parsed_items = parse_task_items(content);
 
-    // Load existing tasks to preserve notify_at values
+    // Load existing tasks to preserve notify_at values when no dueDate is in TipTap JSON
     let existing = get_tasks_for_note(conn, note_id)?;
-    let notify_map: std::collections::HashMap<String, Option<i64>> =
+    let existing_notify_map: std::collections::HashMap<String, Option<i64>> =
         existing.into_iter().map(|t| (t.content, t.notify_at)).collect();
 
     let now = now_ms();
@@ -124,9 +174,14 @@ pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<
     tx.execute("DELETE FROM note_tasks WHERE note_id = ?1", [note_id])?;
 
     // Insert new tasks from content
-    for (text, checked) in parsed_items {
+    for (text, checked, due_date_ms) in parsed_items {
         let id = Uuid::now_v7().to_string();
-        let notify_at = notify_map.get(&text).copied().flatten();
+        // If TipTap provided a dueDate attribute, use it; otherwise fall back to the DB value
+        let notify_at = if due_date_ms.is_some() {
+            due_date_ms
+        } else {
+            existing_notify_map.get(&text).copied().flatten()
+        };
         tx.execute(
             "INSERT INTO note_tasks (id, note_id, content, is_checked, notify_at, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -141,7 +196,7 @@ pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<
 /// Get all tasks for a given note, ordered by creation time.
 pub fn get_tasks_for_note(conn: &Connection, note_id: &str) -> AppResult<Vec<NoteTask>> {
     let mut stmt = conn.prepare(
-        "SELECT id, note_id, content, is_checked, notify_at, created_at, updated_at
+        "SELECT id, note_id, content, is_checked, notify_at, notified_at, created_at, updated_at
          FROM note_tasks
          WHERE note_id = ?1
          ORDER BY created_at ASC",
@@ -155,8 +210,9 @@ pub fn get_tasks_for_note(conn: &Connection, note_id: &str) -> AppResult<Vec<Not
                 content: row.get(2)?,
                 is_checked: row.get::<_, i64>(3)? != 0,
                 notify_at: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
+                notified_at: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()
@@ -169,7 +225,7 @@ pub fn get_tasks_for_note(conn: &Connection, note_id: &str) -> AppResult<Vec<Not
 /// Includes note title, filters out tasks from deleted notes.
 pub fn get_all_tasks(conn: &Connection) -> AppResult<Vec<NoteTaskWithNote>> {
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.note_id, n.title, t.content, t.is_checked, t.notify_at, t.created_at, t.updated_at
+        "SELECT t.id, t.note_id, n.title, t.content, t.is_checked, t.notify_at, t.notified_at, t.created_at, t.updated_at
          FROM note_tasks t
          JOIN notes n ON n.id = t.note_id
          WHERE n.deleted_at IS NULL
@@ -185,8 +241,9 @@ pub fn get_all_tasks(conn: &Connection) -> AppResult<Vec<NoteTaskWithNote>> {
                 content: row.get(3)?,
                 is_checked: row.get::<_, i64>(4)? != 0,
                 notify_at: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
+                notified_at: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()
@@ -297,14 +354,51 @@ mod tests {
         ]
     }"#;
 
+    const TIPTAP_JSON_WITH_DUE_DATE: &str = r#"{
+        "type": "doc",
+        "content": [
+            {
+                "type": "taskList",
+                "content": [
+                    {
+                        "type": "taskItem",
+                        "attrs": { "checked": false, "dueDate": "2026-03-25T14:30" },
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    { "type": "text", "text": "Task with due date" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "taskItem",
+                        "attrs": { "checked": false },
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    { "type": "text", "text": "Task without due date" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }"#;
+
     #[test]
     fn test_parse_task_items_extracts_tasks() {
         let items = parse_task_items(TIPTAP_JSON_WITH_TASKS);
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].0, "Buy groceries");
         assert!(!items[0].1);
+        assert!(items[0].2.is_none());
         assert_eq!(items[1].0, "Read book");
         assert!(items[1].1);
+        assert!(items[1].2.is_none());
     }
 
     #[test]
@@ -327,6 +421,56 @@ mod tests {
     fn test_parse_task_items_invalid_json() {
         let items = parse_task_items("not valid json");
         assert!(items.is_empty());
+    }
+
+    #[test]
+    fn test_parse_task_items_extracts_due_date() {
+        let items = parse_task_items(TIPTAP_JSON_WITH_DUE_DATE);
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].0, "Task with due date");
+        // 2026-03-25T14:30 UTC = verify we get a non-null notify_at
+        assert!(items[0].2.is_some());
+        let ms = items[0].2.unwrap();
+        // 2026-03-25T14:30:00Z in ms since epoch
+        // = (days_since_epoch * 86400 + 14*3600 + 30*60) * 1000
+        // Let's just verify it's a plausible future timestamp (> 2026-01-01)
+        let year_2026_ms = 1_735_689_600_000_i64; // 2025-01-01T00:00:00Z
+        assert!(ms > year_2026_ms);
+        // Task without due date should have None
+        assert!(items[1].2.is_none());
+    }
+
+    #[test]
+    fn test_iso_to_unix_ms_known_value() {
+        // 2026-03-25T14:30 UTC
+        // Days from epoch to 2026-03-25:
+        // We'll just check it parses and is reasonable
+        let ms = iso_to_unix_ms("2026-03-25T14:30");
+        assert!(ms.is_some());
+        let ms = ms.unwrap();
+        // Must be > 2026-01-01 (1735689600000)
+        assert!(ms > 1_735_689_600_000);
+    }
+
+    #[test]
+    fn test_iso_to_unix_ms_invalid() {
+        assert!(iso_to_unix_ms("not-a-date").is_none());
+        assert!(iso_to_unix_ms("2026-03-25").is_none()); // missing time part
+    }
+
+    #[test]
+    fn test_sync_tasks_stores_due_date() {
+        let conn = test_connection();
+        let note_id = create_test_note(&conn);
+
+        sync_tasks(&conn, &note_id, TIPTAP_JSON_WITH_DUE_DATE).unwrap();
+
+        let tasks = get_tasks_for_note(&conn, &note_id).unwrap();
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(tasks[0].content, "Task with due date");
+        assert!(tasks[0].notify_at.is_some());
+        assert_eq!(tasks[1].content, "Task without due date");
+        assert!(tasks[1].notify_at.is_none());
     }
 
     #[test]

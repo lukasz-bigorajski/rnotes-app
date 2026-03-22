@@ -8,6 +8,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+import { TaskItemView } from "./TaskItemView";
 import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
@@ -118,7 +119,24 @@ export function NoteEditor({
       TableHeader,
       TableCell,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItem.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            dueDate: {
+              default: null,
+              parseHTML: (element) => element.getAttribute("data-due-date") || null,
+              renderHTML: (attributes) => {
+                if (!attributes.dueDate) return {};
+                return { "data-due-date": attributes.dueDate };
+              },
+            },
+          };
+        },
+        addNodeView() {
+          return ReactNodeViewRenderer(TaskItemView);
+        },
+      }).configure({ nested: true }),
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,

@@ -11,6 +11,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let data_dir = services::config_service::resolve_data_dir(app.handle())?;
             let assets_dir = data_dir.join("assets");
@@ -24,6 +25,22 @@ pub fn run() {
                 data_dir,
                 assets_dir,
             })));
+
+            // Spawn background task to check for due notifications every 60 seconds
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    interval.tick().await;
+                    let db_state = app_handle.state::<DbState>();
+                    if let Ok(conn) = db_state.0.lock() {
+                        let _ = services::notification_service::check_and_send_notifications(
+                            &app_handle,
+                            &conn,
+                        );
+                    }
+                }
+            });
 
             Ok(())
         })

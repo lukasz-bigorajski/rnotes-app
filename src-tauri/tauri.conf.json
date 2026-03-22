@@ -25,5 +25,10 @@
         "minHeight": 600
       }
     ]
+  },
+  "plugins": {
+    "notification": {
+      "permissions": ["notification:default"]
+    }
   }
 }

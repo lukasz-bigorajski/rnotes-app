@@ -1,7 +1,5 @@
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 1;
-
 const SCHEMA_V1: &str = "
 CREATE TABLE IF NOT EXISTS notes (
     id          TEXT PRIMARY KEY NOT NULL,
@@ -51,14 +49,22 @@ CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
 );
 ";
 
+const SCHEMA_V2: &str = "
+ALTER TABLE note_tasks ADD COLUMN notified_at INTEGER;
+";
+
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let version: i64 = conn
-        .pragma_query_value(None, "user_version", |row| row.get(0))
-?;
+        .pragma_query_value(None, "user_version", |row| row.get(0))?;
 
-    if version < SCHEMA_VERSION {
+    if version < 1 {
         conn.execute_batch(SCHEMA_V1)?;
-        conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        conn.pragma_update(None, "user_version", 1)?;
+    }
+
+    if version < 2 {
+        conn.execute_batch(SCHEMA_V2)?;
+        conn.pragma_update(None, "user_version", 2)?;
     }
 
     Ok(())

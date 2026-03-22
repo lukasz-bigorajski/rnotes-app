@@ -211,6 +211,30 @@
   opacity: 1;
 }
 
+/* Task item due date controls */
+.editorContent :global(.tiptap ul[data-type="taskList"] li .task-item-due-date-controls) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.editorContent :global(.tiptap ul[data-type="taskList"] li:hover .task-item-due-date-controls) {
+  opacity: 1;
+}
+
+/* Always show the controls when a due date is set */
+.editorContent :global(.tiptap ul[data-type="taskList"] li .task-item-due-date-controls:has(.task-due-badge)) {
+  opacity: 1;
+}
+
+.editorContent :global(.tiptap ul[data-type="taskList"] li .task-calendar-btn) {
+  flex-shrink: 0;
+}
+
 /* Nested task lists */
 .editorContent :global(.tiptap ul[data-type="taskList"] ul[data-type="taskList"]) {
   padding-left: 20px;
