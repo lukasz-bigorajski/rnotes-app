@@ -1,0 +1,211 @@
+import { useState, useEffect, useCallback } from "react";
+import { Text, Title, SegmentedControl, Select, Checkbox, Badge, Stack, Group } from "@mantine/core";
+import { IconNotes } from "@tabler/icons-react";
+import dayjs from "dayjs";
+import { getAllTasks, updateTaskChecked } from "../ipc/tasks";
+import type { NoteTaskWithNote } from "../ipc/tasks";
+import styles from "./TaskOverview.module.css";
+
+interface TaskOverviewProps {
+  onNavigateToNote: (noteId: string) => void;
+}
+
+type StatusFilter = "All" | "Open" | "Completed";
+type SortOption = "Due date" | "Note" | "Created";
+
+type GroupKey = "overdue" | "today" | "week" | "later" | "none";
+
+interface TaskGroup {
+  key: GroupKey;
+  label: string;
+  headerClass: string;
+  tasks: NoteTaskWithNote[];
+}
+
+function getGroupKey(task: NoteTaskWithNote, now: dayjs.Dayjs): GroupKey {
+  if (task.notify_at == null) return "none";
+
+  const due = dayjs(task.notify_at);
+  const startOfToday = now.startOf("day");
+  const endOfToday = now.endOf("day");
+  const endOfWeek = now.add(7, "day").endOf("day");
+
+  if (due.isBefore(startOfToday) && !task.is_checked) return "overdue";
+  if (due.isBefore(endOfToday) || due.isSame(endOfToday)) return "today";
+  if (due.isBefore(endOfWeek) || due.isSame(endOfWeek)) return "week";
+  return "later";
+}
+
+function formatDueDate(notifyAt: number | null): string | null {
+  if (notifyAt == null) return null;
+  const d = dayjs(notifyAt);
+  const now = dayjs();
+  if (d.isSame(now, "day")) return `Today ${d.format("HH:mm")}`;
+  if (d.isSame(now.add(1, "day"), "day")) return `Tomorrow ${d.format("HH:mm")}`;
+  return d.format("MMM D, HH:mm");
+}
+
+function getBadgeColor(groupKey: GroupKey): string {
+  if (groupKey === "overdue") return "red";
+  if (groupKey === "today") return "yellow";
+  return "gray";
+}
+
+export function TaskOverview({ onNavigateToNote }: TaskOverviewProps) {
+  const [tasks, setTasks] = useState<NoteTaskWithNote[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
+  const [sortOption, setSortOption] = useState<SortOption>("Due date");
+
+  const load = useCallback(() => {
+    getAllTasks()
+      .then(setTasks)
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleToggle = useCallback(
+    async (task: NoteTaskWithNote) => {
+      const newChecked = !task.is_checked;
+      // Optimistic update
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, is_checked: newChecked } : t)),
+      );
+      try {
+        await updateTaskChecked(task.id, newChecked);
+      } catch (err) {
+        console.error("Failed to update task:", err);
+        // Revert on error
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? { ...t, is_checked: !newChecked } : t)),
+        );
+      }
+    },
+    [],
+  );
+
+  // Apply status filter
+  const filtered = tasks.filter((t) => {
+    if (statusFilter === "Open") return !t.is_checked;
+    if (statusFilter === "Completed") return t.is_checked;
+    return true;
+  });
+
+  // Apply sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortOption === "Due date") {
+      const aDate = a.notify_at ?? Number.MAX_SAFE_INTEGER;
+      const bDate = b.notify_at ?? Number.MAX_SAFE_INTEGER;
+      return aDate - bDate;
+    }
+    if (sortOption === "Note") {
+      return a.note_title.localeCompare(b.note_title);
+    }
+    // Created
+    return a.created_at - b.created_at;
+  });
+
+  // Group tasks
+  const now = dayjs();
+  const groupOrder: GroupKey[] = ["overdue", "today", "week", "later", "none"];
+  const groupMeta: Record<GroupKey, { label: string; headerClass: string }> = {
+    overdue: { label: "Overdue", headerClass: styles.groupHeaderOverdue },
+    today: { label: "Today", headerClass: styles.groupHeaderToday },
+    week: { label: "This Week", headerClass: styles.groupHeaderDefault },
+    later: { label: "Later", headerClass: styles.groupHeaderDefault },
+    none: { label: "No Due Date", headerClass: styles.groupHeaderDefault },
+  };
+
+  const groupMap = new Map<GroupKey, NoteTaskWithNote[]>();
+  for (const key of groupOrder) groupMap.set(key, []);
+  for (const task of sorted) {
+    const key = getGroupKey(task, now);
+    groupMap.get(key)!.push(task);
+  }
+
+  const groups: TaskGroup[] = groupOrder
+    .filter((key) => groupMap.get(key)!.length > 0)
+    .map((key) => ({
+      key,
+      label: groupMeta[key].label,
+      headerClass: groupMeta[key].headerClass,
+      tasks: groupMap.get(key)!,
+    }));
+
+  return (
+    <div className={styles.container} data-testid="task-overview">
+      <div className={styles.header}>
+        <Title order={2}>Tasks</Title>
+        <div className={styles.filters}>
+          <SegmentedControl
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as StatusFilter)}
+            data={["All", "Open", "Completed"]}
+            size="sm"
+          />
+          <Select
+            value={sortOption}
+            onChange={(v) => setSortOption((v ?? "Due date") as SortOption)}
+            data={["Due date", "Note", "Created"]}
+            size="sm"
+            w={140}
+            allowDeselect={false}
+          />
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
+        <div className={styles.emptyState} data-testid="task-overview-empty">
+          <Stack align="center" gap="sm">
+            <IconNotes size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
+            <Text c="dimmed" size="lg">
+              No tasks found
+            </Text>
+          </Stack>
+        </div>
+      ) : (
+        <div>
+          {groups.map((group) => (
+            <div key={group.key} className={styles.groupSection}>
+              <div className={`${styles.groupHeader} ${group.headerClass}`}>{group.label}</div>
+              {group.tasks.map((task) => {
+                const dateLabel = formatDueDate(task.notify_at);
+                const badgeColor = getBadgeColor(group.key);
+                return (
+                  <div key={task.id} className={styles.taskRow}>
+                    <Checkbox
+                      checked={task.is_checked}
+                      onChange={() => handleToggle(task)}
+                      size="sm"
+                    />
+                    <span
+                      className={`${styles.taskContent} ${task.is_checked ? styles.taskContentChecked : ""}`}
+                    >
+                      {task.content}
+                    </span>
+                    {dateLabel && (
+                      <Badge color={badgeColor} variant="light" size="sm">
+                        {dateLabel}
+                      </Badge>
+                    )}
+                    <Group gap={4}>
+                      <span
+                        className={styles.noteLink}
+                        onClick={() => onNavigateToNote(task.note_id)}
+                        data-testid="task-note-link"
+                      >
+                        {task.note_title}
+                      </span>
+                    </Group>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

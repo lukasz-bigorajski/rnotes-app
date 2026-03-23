@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Stack, Text, Button, Group } from "@mantine/core";
-import { IconPlus, IconFolder } from "@tabler/icons-react";
+import { IconPlus, IconFolder, IconChecklist } from "@tabler/icons-react";
 import { createNote, listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
 import { DraggableTree } from "./sidebar/DraggableTree";
@@ -11,9 +11,10 @@ interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
   refreshRef?: React.MutableRefObject<(() => void) | null>;
+  onShowTaskOverview?: () => void;
 }
 
-export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef }: SidebarProps) {
+export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef, onShowTaskOverview }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
@@ -100,6 +101,17 @@ export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef }: SidebarPr
                   onClick={handleCreateFolder}
                 >
                   Folder
+                </Button>
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  title="Task Overview"
+                  aria-label="Task Overview"
+                  leftSection={<IconChecklist size={14} />}
+                  onClick={onShowTaskOverview}
+                  data-testid="task-overview-btn"
+                >
+                  Tasks
                 </Button>
               </Group>
             </Group>

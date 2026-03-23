@@ -27,8 +27,6 @@
     ]
   },
   "plugins": {
-    "notification": {
-      "permissions": ["notification:default"]
-    }
+    "notification": null
   }
 }

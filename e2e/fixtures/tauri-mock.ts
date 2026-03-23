@@ -26,8 +26,33 @@ const SEED_NOTE: Note = {
 
 async function installTauriMock(page: Page) {
   await page.addInitScript((seedNote: Note) => {
+    type Note = {
+      id: string;
+      parent_id: string | null;
+      title: string;
+      content: string | null;
+      sort_order: number;
+      is_folder: boolean;
+      deleted_at: number | null;
+      created_at: number;
+      updated_at: number;
+    };
+
+    type NoteTaskWithNote = {
+      id: string;
+      note_id: string;
+      note_title: string;
+      content: string;
+      is_checked: boolean;
+      notify_at: number | null;
+      notified_at: number | null;
+      created_at: number;
+      updated_at: number;
+    };
+
     const notes = new Map<string, Note>();
     notes.set(seedNote.id, { ...seedNote });
+    const tasks = new Map<string, NoteTaskWithNote>();
 
     let callbackId = 0;
 
@@ -183,8 +208,30 @@ async function installTauriMock(page: Page) {
           }
 
           case "get_all_tasks": {
-            // Return empty task list in the mock environment.
-            return Promise.resolve([]);
+            const allTasks = Array.from(tasks.values()).filter((t) => {
+              const note = notes.get(t.note_id);
+              return note && !note.deleted_at;
+            });
+            return Promise.resolve(allTasks);
+          }
+
+          case "update_task_checked": {
+            const taskId = args?.taskId as string;
+            const isChecked = args?.isChecked as boolean;
+            const task = tasks.get(taskId);
+            if (!task) {
+              return Promise.reject(`Task not found: ${taskId}`);
+            }
+            task.is_checked = isChecked;
+            task.updated_at = Date.now();
+            return Promise.resolve();
+          }
+
+          case "add_mock_task": {
+            // Internal helper for tests to seed tasks into the mock store.
+            const task = args as unknown as NoteTaskWithNote;
+            tasks.set(task.id, { ...task });
+            return Promise.resolve();
           }
 
           default:
@@ -192,18 +239,6 @@ async function installTauriMock(page: Page) {
             return Promise.resolve();
         }
       },
-    };
-
-    type Note = {
-      id: string;
-      parent_id: string | null;
-      title: string;
-      content: string | null;
-      sort_order: number;
-      is_folder: boolean;
-      deleted_at: number | null;
-      created_at: number;
-      updated_at: number;
     };
   }, SEED_NOTE);
 }

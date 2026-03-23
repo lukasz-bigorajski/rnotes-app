@@ -1,0 +1,89 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: var(--mantine-spacing-xl);
+  overflow-y: auto;
+}
+
+.header {
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+  margin-top: var(--mantine-spacing-md);
+}
+
+.groupSection {
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.groupHeader {
+  font-weight: 700;
+  font-size: var(--mantine-font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--mantine-spacing-xs) 0;
+  margin-bottom: var(--mantine-spacing-xs);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.groupHeaderOverdue {
+  color: var(--mantine-color-red-6);
+}
+
+.groupHeaderToday {
+  color: var(--mantine-color-yellow-7);
+}
+
+.groupHeaderDefault {
+  color: var(--mantine-color-dimmed);
+}
+
+.taskRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  cursor: default;
+}
+
+.taskRow:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.taskContent {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.taskContentChecked {
+  text-decoration: line-through;
+  color: var(--mantine-color-dimmed);
+}
+
+.noteLink {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.noteLink:hover {
+  text-decoration: underline;
+  color: var(--mantine-color-blue-6);
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--mantine-spacing-xl);
+  color: var(--mantine-color-dimmed);
+}

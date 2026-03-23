@@ -28,3 +28,7 @@ export function getNoteTasks(noteId: string): Promise<NoteTask[]> {
 export function getAllTasks(): Promise<NoteTaskWithNote[]> {
   return invoke("get_all_tasks");
 }
+
+export function updateTaskChecked(taskId: string, isChecked: boolean): Promise<void> {
+  return invoke("update_task_checked", { taskId, isChecked });
+}

@@ -28,3 +28,13 @@ pub fn get_all_tasks(db: State<'_, DbState>) -> Result<Vec<NoteTaskWithNote>, Ap
     let conn = lock_db(&db)?;
     task_service::get_all_tasks(&conn)
 }
+
+#[tauri::command]
+pub fn update_task_checked(
+    db: State<'_, DbState>,
+    task_id: String,
+    is_checked: bool,
+) -> Result<(), AppError> {
+    let conn = lock_db(&db)?;
+    task_service::update_task_checked(&conn, &task_id, is_checked)
+}

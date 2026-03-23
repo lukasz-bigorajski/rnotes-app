@@ -221,6 +221,19 @@ pub fn get_tasks_for_note(conn: &Connection, note_id: &str) -> AppResult<Vec<Not
     Ok(tasks)
 }
 
+/// Update the `is_checked` status of a single task.
+pub fn update_task_checked(conn: &Connection, task_id: &str, is_checked: bool) -> AppResult<()> {
+    let now = now_ms();
+    let rows = conn.execute(
+        "UPDATE note_tasks SET is_checked = ?1, updated_at = ?2 WHERE id = ?3",
+        rusqlite::params![is_checked as i64, now, task_id],
+    )?;
+    if rows == 0 {
+        return Err(AppError::NotFound(format!("task {task_id}")));
+    }
+    Ok(())
+}
+
 /// Get all tasks across all notes (for future task overview).
 /// Includes note title, filters out tasks from deleted notes.
 pub fn get_all_tasks(conn: &Connection) -> AppResult<Vec<NoteTaskWithNote>> {
@@ -538,6 +551,31 @@ mod tests {
 
         let all_tasks = get_all_tasks(&conn).unwrap();
         assert!(all_tasks.is_empty());
+    }
+
+    #[test]
+    fn test_update_task_checked_toggles_status() {
+        let conn = test_connection();
+        let note_id = create_test_note(&conn);
+
+        sync_tasks(&conn, &note_id, TIPTAP_JSON_WITH_TASKS).unwrap();
+
+        let tasks = get_tasks_for_note(&conn, &note_id).unwrap();
+        let task_id = &tasks[0].id;
+        assert!(!tasks[0].is_checked);
+
+        update_task_checked(&conn, task_id, true).unwrap();
+
+        let updated = get_tasks_for_note(&conn, &note_id).unwrap();
+        let task = updated.iter().find(|t| t.id == *task_id).unwrap();
+        assert!(task.is_checked);
+    }
+
+    #[test]
+    fn test_update_task_checked_not_found() {
+        let conn = test_connection();
+        let result = update_task_checked(&conn, "nonexistent-id", true);
+        assert!(result.is_err());
     }
 
     #[test]
