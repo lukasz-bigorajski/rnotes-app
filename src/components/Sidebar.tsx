@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { Stack, Text, Button, Group } from "@mantine/core";
-import { IconPlus, IconFolder, IconChecklist } from "@tabler/icons-react";
-import { createNote, listNotes } from "../ipc/notes";
-import type { NoteRow } from "../ipc/notes";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton } from "@mantine/core";
+import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX } from "@tabler/icons-react";
+import { createNote, listNotes, searchNotes } from "../ipc/notes";
+import type { NoteRow, SearchResult } from "../ipc/notes";
 import { DraggableTree } from "./sidebar/DraggableTree";
 import { ArchivePanel } from "./sidebar/ArchivePanel";
 import { ArchiveToggle } from "./sidebar/ArchiveToggle";
@@ -12,12 +12,23 @@ interface SidebarProps {
   setActiveNoteId: (id: string | null) => void;
   refreshRef?: React.MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
+  onOpenGlobalSearch?: () => void;
 }
 
-export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef, onShowTaskOverview }: SidebarProps) {
+export function Sidebar({
+  activeNoteId,
+  setActiveNoteId,
+  refreshRef,
+  onShowTaskOverview,
+  onOpenGlobalSearch,
+}: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadNotes = () => {
     listNotes().then(setNotes).catch(console.error);
@@ -73,6 +84,43 @@ export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef, onShowTaskO
     setIsArchiveOpen(false);
   };
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!value.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchNotes(value.trim());
+        setSearchResults(results);
+      } catch (err) {
+        console.error("Search failed:", err);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearching(false);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  }, []);
+
+  const handleResultClick = useCallback(
+    (id: string) => {
+      setActiveNoteId(id);
+      handleClearSearch();
+    },
+    [setActiveNoteId, handleClearSearch],
+  );
+
   // Filter out deleted notes for tree display
   const visibleNotes = notes.filter((n) => !n.deleted_at);
 
@@ -86,6 +134,17 @@ export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef, onShowTaskO
                 Notes
               </Text>
               <Group gap="xs">
+                {onOpenGlobalSearch && (
+                  <Button
+                    variant="subtle"
+                    size="compact-sm"
+                    title="Search all notes (Cmd+K)"
+                    aria-label="Open global search"
+                    leftSection={<IconSearch size={14} />}
+                    onClick={onOpenGlobalSearch}
+                    data-testid="open-global-search-btn"
+                  />
+                )}
                 <Button
                   variant="subtle"
                   size="compact-sm"
@@ -116,7 +175,63 @@ export function Sidebar({ activeNoteId, setActiveNoteId, refreshRef, onShowTaskO
               </Group>
             </Group>
 
-            {visibleNotes.length === 0 ? (
+            <TextInput
+              placeholder="Search notes..."
+              leftSection={<IconSearch size={14} />}
+              rightSection={
+                searchQuery ? (
+                  <UnstyledButton
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
+                    <IconX size={14} />
+                  </UnstyledButton>
+                ) : null
+              }
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") handleClearSearch();
+              }}
+              size="xs"
+              data-testid="sidebar-search-input"
+            />
+
+            {searchQuery ? (
+              isSearching ? (
+                <Text c="dimmed" size="sm" ta="center">
+                  Searching…
+                </Text>
+              ) : searchResults.length === 0 ? (
+                <Text c="dimmed" size="sm" ta="center" mt="sm" data-testid="search-no-results">
+                  No results found.
+                </Text>
+              ) : (
+                <Stack gap={4} data-testid="search-results-list">
+                  {searchResults.map((result) => (
+                    <Paper
+                      key={result.id}
+                      p="xs"
+                      withBorder
+                      style={{ cursor: "pointer" }}
+                      onClick={() => handleResultClick(result.id)}
+                      data-testid="search-result-item"
+                    >
+                      <Text fw={700} size="sm" truncate>
+                        {result.title}
+                      </Text>
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        lineClamp={2}
+                        dangerouslySetInnerHTML={{ __html: result.snippet }}
+                      />
+                    </Paper>
+                  ))}
+                </Stack>
+              )
+            ) : visibleNotes.length === 0 ? (
               <Text c="dimmed" ta="center" mt="xl">
                 No notes yet. Create one to get started.
               </Text>

@@ -54,6 +54,7 @@ pub fn run() {
             commands::note_commands::delete_note_tree,
             commands::note_commands::move_note,
             commands::note_commands::restore_note,
+            commands::note_commands::search_notes,
             commands::config_commands::get_config,
             commands::assets::save_image,
             commands::assets::get_image_url,

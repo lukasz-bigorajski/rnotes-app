@@ -1,6 +1,8 @@
 use tauri::State;
 
+use crate::db::fts::SearchResult;
 use crate::db::notes::{Note, NoteRow};
+use crate::db::fts;
 use crate::error::AppError;
 use crate::services::note_service::{self, CreateNoteRequest};
 use crate::state::DbState;
@@ -80,4 +82,10 @@ pub fn move_note(
 pub fn restore_note(state: State<'_, DbState>, id: String) -> Result<(), AppError> {
     let conn = lock_db(&state)?;
     note_service::restore_note(&conn, &id)
+}
+
+#[tauri::command]
+pub fn search_notes(state: State<'_, DbState>, query: String) -> Result<Vec<SearchResult>, AppError> {
+    let conn = lock_db(&state)?;
+    fts::search(&conn, &query)
 }

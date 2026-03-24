@@ -90,3 +90,14 @@ export function moveNote(params: {
 export function restoreNote(id: string): Promise<void> {
   return invoke("restore_note", { id });
 }
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  snippet: string;
+  rank: number;
+}
+
+export function searchNotes(query: string): Promise<SearchResult[]> {
+  return invoke("search_notes", { query });
+}

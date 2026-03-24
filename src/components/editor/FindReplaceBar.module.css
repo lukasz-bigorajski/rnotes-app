@@ -1,0 +1,22 @@
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  padding: 6px 12px;
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-dimmed);
+  padding: 2px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.toggleBtn:hover {
+  color: var(--mantine-color-text);
+  background: var(--mantine-color-default-hover);
+}

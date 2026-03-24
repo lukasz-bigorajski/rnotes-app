@@ -44,8 +44,8 @@ test("rename note via context menu", async ({ page }) => {
 
   await page.getByText("Rename").click();
 
-  // Inline rename input should appear — scope to nav to avoid matching TipTap editor
-  const renameInput = page.locator("nav").getByRole("textbox");
+  // Inline rename input should appear
+  const renameInput = page.getByTestId("inline-rename-input");
   await renameInput.waitFor({ state: "visible" });
 
   // Clear and type new name

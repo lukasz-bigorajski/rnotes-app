@@ -67,6 +67,7 @@ export function InlineRenameInput({
       rightSection={isLoading ? <Loader size={14} /> : undefined}
       autoFocus
       style={{ flex: 1 }}
+      data-testid="inline-rename-input"
     />
   );
 }

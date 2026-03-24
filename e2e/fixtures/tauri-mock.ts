@@ -69,6 +69,8 @@ async function installTauriMock(page: Page) {
         return id;
       },
       invoke: (cmd: string, args?: Record<string, unknown>) => {
+        // Typed helper for search results
+        type SearchResult = { id: string; title: string; snippet: string; rank: number };
         // Handle Tauri event system commands
         if (cmd === "plugin:event|listen" || cmd === "plugin:event|emit") {
           return Promise.resolve();
@@ -232,6 +234,20 @@ async function installTauriMock(page: Page) {
             const task = args as unknown as NoteTaskWithNote;
             tasks.set(task.id, { ...task });
             return Promise.resolve();
+          }
+
+          case "search_notes": {
+            const query = ((args?.query as string) ?? "").toLowerCase().trim();
+            if (!query) return Promise.resolve([]);
+            const results: SearchResult[] = [];
+            for (const note of notes.values()) {
+              if (note.deleted_at) continue;
+              if (note.title.toLowerCase().includes(query)) {
+                const snippet = `…<mark>${note.title}</mark>…`;
+                results.push({ id: note.id, title: note.title, snippet, rank: 0 });
+              }
+            }
+            return Promise.resolve(results);
           }
 
           default:

@@ -21,7 +21,7 @@ test("drag note to last position by dropping on bottom half of last item", async
     .getByRole("button");
   await dotsB.click();
   await page.getByText("Rename").click();
-  const inputB = page.locator("nav").getByRole("textbox");
+  const inputB = page.getByTestId("inline-rename-input");
   await inputB.fill("Note B");
   await page.keyboard.press("Enter");
   await page.locator("nav").getByText("Note B").waitFor({ state: "visible" });
@@ -39,7 +39,7 @@ test("drag note to last position by dropping on bottom half of last item", async
     .getByRole("button");
   await dotsC.click();
   await page.getByText("Rename").click();
-  const inputC = page.locator("nav").getByRole("textbox");
+  const inputC = page.getByTestId("inline-rename-input");
   await inputC.fill("Note C");
   await page.keyboard.press("Enter");
   await page.locator("nav").getByText("Note C").waitFor({ state: "visible" });

@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import { AppShell } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useHotkeys } from "@mantine/hooks";
 import { Sidebar } from "./components/Sidebar";
 import { ContentArea } from "./components/ContentArea";
 import { TaskOverview } from "./components/TaskOverview";
+import { GlobalSearch } from "./components/GlobalSearch";
 
 type ActiveView = "editor" | "tasks";
 
@@ -12,6 +13,12 @@ export default function App() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>("editor");
   const sidebarRefreshRef = useRef<(() => void) | null>(null);
+  const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
+
+  useHotkeys([
+    ["mod+K", () => setGlobalSearchOpened(true)],
+    ["ctrl+K", () => setGlobalSearchOpened(true)],
+  ]);
 
   const handleNotesChanged = () => {
     sidebarRefreshRef.current?.();
@@ -34,7 +41,18 @@ export default function App() {
     setActiveView("editor");
   };
 
+  const handleGlobalSearchSelect = (noteId: string) => {
+    handleSetActiveNoteId(noteId);
+    setGlobalSearchOpened(false);
+  };
+
   return (
+    <>
+      <GlobalSearch
+        opened={globalSearchOpened}
+        onClose={() => setGlobalSearchOpened(false)}
+        onSelectNote={handleGlobalSearchSelect}
+      />
     <AppShell
       navbar={{
         width: 280,
@@ -49,6 +67,7 @@ export default function App() {
           setActiveNoteId={handleSetActiveNoteId}
           refreshRef={sidebarRefreshRef}
           onShowTaskOverview={handleShowTaskOverview}
+          onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
         />
       </AppShell.Navbar>
 
@@ -60,5 +79,6 @@ export default function App() {
         )}
       </AppShell.Main>
     </AppShell>
+    </>
   );
 }

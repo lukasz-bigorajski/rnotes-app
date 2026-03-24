@@ -13,6 +13,8 @@ import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
 import { EditorToolbar } from "./EditorToolbar";
+import { FindReplaceBar } from "./FindReplaceBar";
+import { createFindReplacePlugin } from "./findReplacePlugin";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
@@ -68,6 +70,7 @@ export function NoteEditor({
   const [localTitle, setLocalTitle] = useState(title);
   const titleSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNewNote = title === "Untitled";
+  const [findBarOpen, setFindBarOpen] = useState(false);
 
   // Keep localTitle in sync when the note changes (different noteId)
   useEffect(() => {
@@ -89,6 +92,10 @@ export function NoteEditor({
         link: {
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        },
+      }).extend({
+        addProseMirrorPlugins() {
+          return [createFindReplacePlugin()];
         },
       }),
       CodeBlockLowlight.extend({
@@ -196,11 +203,26 @@ export function NoteEditor({
     [editor],
   );
 
+  // Register Cmd+F / Ctrl+F to open find bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setFindBarOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   if (!editor) return null;
 
   return (
     <div className={classes.editorWrapper}>
       <EditorToolbar editor={editor} noteId={noteId} />
+      {findBarOpen && (
+        <FindReplaceBar editor={editor} onClose={() => setFindBarOpen(false)} />
+      )}
       <div className={classes.titleRow}>
         <input
           ref={titleInputRef}
