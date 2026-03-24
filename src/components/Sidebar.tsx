@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton } from "@mantine/core";
-import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX } from "@tabler/icons-react";
+import type { MutableRefObject } from "react";
+import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton, ActionIcon } from "@mantine/core";
+import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard } from "@tabler/icons-react";
 import { createNote, listNotes, searchNotes } from "../ipc/notes";
 import type { NoteRow, SearchResult } from "../ipc/notes";
 import { DraggableTree } from "./sidebar/DraggableTree";
@@ -10,17 +11,23 @@ import { ArchiveToggle } from "./sidebar/ArchiveToggle";
 interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
-  refreshRef?: React.MutableRefObject<(() => void) | null>;
+  refreshRef?: MutableRefObject<(() => void) | null>;
+  createNoteRef?: MutableRefObject<(() => void) | null>;
+  createFolderRef?: MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
   onOpenGlobalSearch?: () => void;
+  onOpenShortcutsDialog?: () => void;
 }
 
 export function Sidebar({
   activeNoteId,
   setActiveNoteId,
   refreshRef,
+  createNoteRef,
+  createFolderRef,
   onShowTaskOverview,
   onOpenGlobalSearch,
+  onOpenShortcutsDialog,
 }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -77,6 +84,25 @@ export function Sidebar({
       console.error("Failed to create folder:", err);
     }
   };
+
+  // Expose create handlers via refs so hotkeys in App.tsx can call them
+  const handleCreateNoteRef = useRef(handleCreateNote);
+  handleCreateNoteRef.current = handleCreateNote;
+
+  const handleCreateFolderRef = useRef(handleCreateFolder);
+  handleCreateFolderRef.current = handleCreateFolder;
+
+  useEffect(() => {
+    if (createNoteRef) {
+      createNoteRef.current = () => handleCreateNoteRef.current();
+    }
+  }, [createNoteRef]);
+
+  useEffect(() => {
+    if (createFolderRef) {
+      createFolderRef.current = () => handleCreateFolderRef.current();
+    }
+  }, [createFolderRef]);
 
   const handleNoteRestored = () => {
     loadNotes();
@@ -254,11 +280,25 @@ export function Sidebar({
         )}
       </Stack>
 
-      <ArchiveToggle
-        isArchiveOpen={isArchiveOpen}
-        setIsArchiveOpen={setIsArchiveOpen}
-        archivedCount={archivedCount}
-      />
+      <Group justify="space-between" align="center">
+        <ArchiveToggle
+          isArchiveOpen={isArchiveOpen}
+          setIsArchiveOpen={setIsArchiveOpen}
+          archivedCount={archivedCount}
+        />
+        {onOpenShortcutsDialog && (
+          <ActionIcon
+            variant="subtle"
+            size="sm"
+            title="Keyboard shortcuts (Cmd+/)"
+            aria-label="Open keyboard shortcuts"
+            onClick={onOpenShortcutsDialog}
+            data-testid="open-shortcuts-btn"
+          >
+            <IconKeyboard size={16} />
+          </ActionIcon>
+        )}
+      </Group>
     </Stack>
   );
 }

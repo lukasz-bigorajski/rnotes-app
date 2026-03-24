@@ -18,6 +18,7 @@ import { createFindReplacePlugin } from "./findReplacePlugin";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
+import type { MutableRefObject } from "react";
 import { getImageUrl } from "../../ipc/assets";
 
 import classes from "./NoteEditor.module.css";
@@ -57,6 +58,7 @@ interface NoteEditorProps {
   title?: string;
   onSave?: (params: { id: string; content: string; plainText: string }) => void;
   onTitleChange?: (newTitle: string) => void;
+  forceSaveRef?: MutableRefObject<(() => void) | null>;
 }
 
 export function NoteEditor({
@@ -65,6 +67,7 @@ export function NoteEditor({
   title = "Untitled",
   onSave,
   onTitleChange,
+  forceSaveRef,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localTitle, setLocalTitle] = useState(title);
@@ -203,12 +206,102 @@ export function NoteEditor({
     [editor],
   );
 
-  // Register Cmd+F / Ctrl+F to open find bar
+  // Register Cmd+F / Ctrl+F to open find bar, Cmd+S to force save,
+  // and Cmd+Shift+1-9 for editor structure shortcuts.
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
+  const noteIdRef = useRef(noteId);
+  noteIdRef.current = noteId;
+
+  // Expose force-save via ref so App.tsx hotkeys can call it
+  useEffect(() => {
+    if (!forceSaveRef) return;
+    forceSaveRef.current = () => {
+      const currentEditor = editorRef.current;
+      const currentNoteId = noteIdRef.current;
+      if (!currentEditor || !currentNoteId || !onSaveRef.current) return;
+      onSaveRef.current({
+        id: currentNoteId,
+        content: JSON.stringify(currentEditor.getJSON()),
+        plainText: currentEditor.getText(),
+      });
+    };
+    return () => {
+      if (forceSaveRef) forceSaveRef.current = null;
+    };
+  }, [forceSaveRef]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      // Cmd+F — open find bar
+      if (e.key === "f" && !e.shiftKey) {
         e.preventDefault();
         setFindBarOpen(true);
+        return;
+      }
+
+      // Cmd+S — force save (prevent browser save dialog)
+      if (e.key === "s" && !e.shiftKey) {
+        e.preventDefault();
+        const currentEditor = editorRef.current;
+        const currentNoteId = noteIdRef.current;
+        if (currentEditor && currentNoteId && onSaveRef.current) {
+          onSaveRef.current({
+            id: currentNoteId,
+            content: JSON.stringify(currentEditor.getJSON()),
+            plainText: currentEditor.getText(),
+          });
+        }
+        return;
+      }
+
+      // Cmd+Shift+1..9 — editor structure shortcuts
+      if (e.shiftKey) {
+        const currentEditor = editorRef.current;
+        if (!currentEditor) return;
+        switch (e.key) {
+          case "!": // Shift+1
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 1 }).run();
+            break;
+          case "@": // Shift+2
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 2 }).run();
+            break;
+          case "#": // Shift+3
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 3 }).run();
+            break;
+          case "$": // Shift+4
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 4 }).run();
+            break;
+          case "%": // Shift+5
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 5 }).run();
+            break;
+          case "^": // Shift+6
+            e.preventDefault();
+            currentEditor.chain().focus().toggleHeading({ level: 6 }).run();
+            break;
+          case "&": // Shift+7
+            e.preventDefault();
+            currentEditor.chain().focus().toggleOrderedList().run();
+            break;
+          case "*": // Shift+8
+            e.preventDefault();
+            currentEditor.chain().focus().toggleBulletList().run();
+            break;
+          case "(": // Shift+9
+            e.preventDefault();
+            currentEditor.chain().focus().toggleTaskList().run();
+            break;
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);

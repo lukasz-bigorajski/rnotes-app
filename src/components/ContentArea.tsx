@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from "react";
+import type { MutableRefObject } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconNotes } from "@tabler/icons-react";
 import { NoteEditor } from "./editor/NoteEditor";
@@ -9,9 +10,10 @@ import type { JSONContent } from "@tiptap/react";
 interface ContentAreaProps {
   activeNoteId: string | null;
   onNotesChanged?: () => void;
+  forceSaveRef?: MutableRefObject<(() => void) | null>;
 }
 
-export function ContentArea({ activeNoteId, onNotesChanged }: ContentAreaProps) {
+export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: ContentAreaProps) {
   const { note, loading, saveNote } = useActiveNote(activeNoteId);
 
   const parsedContent = useMemo<JSONContent | null>(() => {
@@ -69,6 +71,7 @@ export function ContentArea({ activeNoteId, onNotesChanged }: ContentAreaProps) 
         title={note?.title ?? "Untitled"}
         onSave={saveNote}
         onTitleChange={handleTitleChange}
+        forceSaveRef={forceSaveRef}
       />
     </div>
   );
