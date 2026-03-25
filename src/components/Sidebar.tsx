@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { MutableRefObject } from "react";
 import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton, ActionIcon } from "@mantine/core";
-import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard } from "@tabler/icons-react";
+import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard, IconSettings } from "@tabler/icons-react";
 import { createNote, listNotes, searchNotes } from "../ipc/notes";
 import type { NoteRow, SearchResult } from "../ipc/notes";
 import { DraggableTree } from "./sidebar/DraggableTree";
@@ -17,6 +17,7 @@ interface SidebarProps {
   onShowTaskOverview?: () => void;
   onOpenGlobalSearch?: () => void;
   onOpenShortcutsDialog?: () => void;
+  onShowSettings?: () => void;
 }
 
 export function Sidebar({
@@ -28,6 +29,7 @@ export function Sidebar({
   onShowTaskOverview,
   onOpenGlobalSearch,
   onOpenShortcutsDialog,
+  onShowSettings,
 }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -286,18 +288,32 @@ export function Sidebar({
           setIsArchiveOpen={setIsArchiveOpen}
           archivedCount={archivedCount}
         />
-        {onOpenShortcutsDialog && (
-          <ActionIcon
-            variant="subtle"
-            size="sm"
-            title="Keyboard shortcuts (Cmd+/)"
-            aria-label="Open keyboard shortcuts"
-            onClick={onOpenShortcutsDialog}
-            data-testid="open-shortcuts-btn"
-          >
-            <IconKeyboard size={16} />
-          </ActionIcon>
-        )}
+        <Group gap="xs">
+          {onOpenShortcutsDialog && (
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Keyboard shortcuts (Cmd+/)"
+              aria-label="Open keyboard shortcuts"
+              onClick={onOpenShortcutsDialog}
+              data-testid="open-shortcuts-btn"
+            >
+              <IconKeyboard size={16} />
+            </ActionIcon>
+          )}
+          {onShowSettings && (
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Settings"
+              aria-label="Open settings"
+              onClick={onShowSettings}
+              data-testid="open-settings-btn"
+            >
+              <IconSettings size={16} />
+            </ActionIcon>
+          )}
+        </Group>
       </Group>
     </Stack>
   );

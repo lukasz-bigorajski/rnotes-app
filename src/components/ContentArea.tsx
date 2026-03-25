@@ -5,6 +5,7 @@ import { IconNotes } from "@tabler/icons-react";
 import { NoteEditor } from "./editor/NoteEditor";
 import { useActiveNote } from "../hooks/useActiveNote";
 import { renameNote } from "../ipc/notes";
+import { useUserConfig } from "../context/UserConfigContext";
 import type { JSONContent } from "@tiptap/react";
 
 interface ContentAreaProps {
@@ -15,6 +16,7 @@ interface ContentAreaProps {
 
 export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: ContentAreaProps) {
   const { note, loading, saveNote } = useActiveNote(activeNoteId);
+  const { config } = useUserConfig();
 
   const parsedContent = useMemo<JSONContent | null>(() => {
     if (!note?.content) return null;
@@ -72,6 +74,10 @@ export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: Cont
         onSave={saveNote}
         onTitleChange={handleTitleChange}
         forceSaveRef={forceSaveRef}
+        autoSaveIntervalMs={config.auto_save_interval_ms}
+        fontSize={config.font_size}
+        fontFamily={config.font_family}
+        spellCheck={config.spell_check}
       />
     </div>
   );

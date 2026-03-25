@@ -52,6 +52,13 @@ async function resolveImageUrls(content: JSONContent): Promise<JSONContent> {
   return walk(content);
 }
 
+const FONT_FAMILY_MAP: Record<string, string> = {
+  system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  monospace: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
+  serif: 'Georgia, "Times New Roman", Times, serif',
+  "sans-serif": 'Arial, Helvetica, sans-serif',
+};
+
 interface NoteEditorProps {
   content: JSONContent | null;
   noteId?: string | null;
@@ -59,6 +66,10 @@ interface NoteEditorProps {
   onSave?: (params: { id: string; content: string; plainText: string }) => void;
   onTitleChange?: (newTitle: string) => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
+  autoSaveIntervalMs?: number;
+  fontSize?: number;
+  fontFamily?: string;
+  spellCheck?: boolean;
 }
 
 export function NoteEditor({
@@ -68,6 +79,10 @@ export function NoteEditor({
   onSave,
   onTitleChange,
   forceSaveRef,
+  autoSaveIntervalMs = 1000,
+  fontSize = 16,
+  fontFamily = "system",
+  spellCheck = true,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localTitle, setLocalTitle] = useState(title);
@@ -156,6 +171,7 @@ export function NoteEditor({
     editor,
     noteId: noteId ?? null,
     onSave: onSave ?? (() => {}),
+    debounceMs: autoSaveIntervalMs,
   });
 
   // When a note is loaded, resolve any relative asset paths to absolute URLs.
@@ -310,8 +326,18 @@ export function NoteEditor({
 
   if (!editor) return null;
 
+  const resolvedFontFamily = FONT_FAMILY_MAP[fontFamily] ?? FONT_FAMILY_MAP["system"];
+
   return (
-    <div className={classes.editorWrapper}>
+    <div
+      className={classes.editorWrapper}
+      style={
+        {
+          "--editor-font-size": `${fontSize}px`,
+          "--editor-font-family": resolvedFontFamily,
+        } as React.CSSProperties
+      }
+    >
       <EditorToolbar editor={editor} noteId={noteId} />
       {findBarOpen && (
         <FindReplaceBar editor={editor} onClose={() => setFindBarOpen(false)} />
@@ -329,7 +355,11 @@ export function NoteEditor({
           data-testid="note-title-input"
         />
       </div>
-      <EditorContent editor={editor} className={classes.editorContent} />
+      <EditorContent
+        editor={editor}
+        className={classes.editorContent}
+        spellCheck={spellCheck}
+      />
     </div>
   );
 }

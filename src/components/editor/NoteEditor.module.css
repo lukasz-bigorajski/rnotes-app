@@ -50,6 +50,8 @@
 .editorContent :global(.tiptap) {
   outline: none;
   min-height: 200px;
+  font-size: var(--editor-font-size, 1rem);
+  font-family: var(--editor-font-family, inherit);
 }
 
 .editorContent :global(.tiptap p.is-editor-empty:first-child::before) {

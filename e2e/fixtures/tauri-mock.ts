@@ -50,9 +50,24 @@ async function installTauriMock(page: Page) {
       updated_at: number;
     };
 
+    type UserConfig = {
+      theme: string;
+      auto_save_interval_ms: number;
+      font_size: number;
+      font_family: string;
+      spell_check: boolean;
+    };
+
     const notes = new Map<string, Note>();
     notes.set(seedNote.id, { ...seedNote });
     const tasks = new Map<string, NoteTaskWithNote>();
+    let userConfig: UserConfig = {
+      theme: "auto",
+      auto_save_interval_ms: 1000,
+      font_size: 16,
+      font_family: "system",
+      spell_check: true,
+    };
 
     let callbackId = 0;
 
@@ -233,6 +248,18 @@ async function installTauriMock(page: Page) {
             // Internal helper for tests to seed tasks into the mock store.
             const task = args as unknown as NoteTaskWithNote;
             tasks.set(task.id, { ...task });
+            return Promise.resolve();
+          }
+
+          case "get_user_config": {
+            return Promise.resolve({ ...userConfig });
+          }
+
+          case "update_user_config": {
+            const cfg = args?.config as UserConfig;
+            if (cfg) {
+              userConfig = { ...userConfig, ...cfg };
+            }
             return Promise.resolve();
           }
 

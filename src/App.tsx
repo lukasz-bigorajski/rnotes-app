@@ -4,12 +4,14 @@ import { useDisclosure, useHotkeys } from "@mantine/hooks";
 import { Sidebar } from "./components/Sidebar";
 import { ContentArea } from "./components/ContentArea";
 import { TaskOverview } from "./components/TaskOverview";
+import { Settings } from "./components/Settings";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
+import { UserConfigProvider } from "./context/UserConfigContext";
 
-type ActiveView = "editor" | "tasks";
+type ActiveView = "editor" | "tasks" | "settings";
 
-export default function App() {
+function AppInner() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [opened] = useDisclosure(true);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -46,6 +48,11 @@ export default function App() {
   const handleShowTaskOverview = () => {
     setActiveNoteId(null);
     setActiveView("tasks");
+  };
+
+  const handleShowSettings = () => {
+    setActiveNoteId(null);
+    setActiveView("settings");
   };
 
   const handleNavigateToNote = (noteId: string) => {
@@ -88,6 +95,7 @@ export default function App() {
               onShowTaskOverview={handleShowTaskOverview}
               onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
               onOpenShortcutsDialog={() => setShortcutsDialogOpened(true)}
+              onShowSettings={handleShowSettings}
             />
           </AppShell.Navbar>
         )}
@@ -95,6 +103,8 @@ export default function App() {
         <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100dvh" }}>
           {activeView === "tasks" ? (
             <TaskOverview onNavigateToNote={handleNavigateToNote} />
+          ) : activeView === "settings" ? (
+            <Settings />
           ) : (
             <ContentArea
               activeNoteId={activeNoteId}
@@ -105,5 +115,13 @@ export default function App() {
         </AppShell.Main>
       </AppShell>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <UserConfigProvider>
+      <AppInner />
+    </UserConfigProvider>
   );
 }

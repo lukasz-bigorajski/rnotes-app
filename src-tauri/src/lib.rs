@@ -4,7 +4,7 @@ mod error;
 mod services;
 mod state;
 
-use state::{AppConfig, ConfigState, DbState};
+use state::{AppConfig, ConfigState, DbState, UserConfigState};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -20,11 +20,14 @@ pub fn run() {
             let db_path = data_dir.join("rnotes.db");
             let conn = db::open_and_initialize(&db_path)?;
 
+            let user_config = services::config_service::load_user_config(&data_dir);
+
             app.manage(DbState(Mutex::new(conn)));
             app.manage(ConfigState(Mutex::new(AppConfig {
                 data_dir,
                 assets_dir,
             })));
+            app.manage(UserConfigState(Mutex::new(user_config)));
 
             // Spawn background task to check for due notifications every 60 seconds
             let app_handle = app.handle().clone();
@@ -56,6 +59,8 @@ pub fn run() {
             commands::note_commands::restore_note,
             commands::note_commands::search_notes,
             commands::config_commands::get_config,
+            commands::config_commands::get_user_config,
+            commands::config_commands::update_user_config,
             commands::assets::save_image,
             commands::assets::get_image_url,
             commands::task_commands::get_note_tasks,
