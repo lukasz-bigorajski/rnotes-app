@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
 import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton, ActionIcon } from "@mantine/core";
 import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard, IconSettings } from "@tabler/icons-react";
@@ -152,8 +152,10 @@ export function Sidebar({
     [setActiveNoteId, handleClearSearch],
   );
 
-  // Filter out deleted notes for tree display
-  const visibleNotes = notes.filter((n) => !n.deleted_at);
+  // Filter out deleted notes for tree display.
+  // Memoized so the DraggableTree receives a stable array reference unless
+  // the notes list actually changes, avoiding unnecessary re-renders.
+  const visibleNotes = useMemo(() => notes.filter((n) => !n.deleted_at), [notes]);
 
   return (
     <Stack gap="sm" h="100%" justify="space-between">

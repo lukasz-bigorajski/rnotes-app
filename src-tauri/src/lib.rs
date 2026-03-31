@@ -67,6 +67,21 @@ pub fn run() {
             commands::task_commands::get_all_tasks,
             commands::task_commands::update_task_checked,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        // Flush the WAL back into the main database file on clean shutdown.
+        // This ensures the -wal and -shm sidecar files are cleaned up so the
+        // database is in a consistent single-file state when the app exits.
+        // Errors are logged but do not prevent the process from exiting —
+        // SQLite will replay any remaining WAL frames on the next open.
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                let db_state = app_handle.state::<DbState>();
+                if let Ok(conn) = db_state.0.lock()
+                    && let Err(e) = db::wal_checkpoint(&conn)
+                {
+                    eprintln!("WAL checkpoint failed on exit: {e}");
+                }
+            }
+        });
 }
