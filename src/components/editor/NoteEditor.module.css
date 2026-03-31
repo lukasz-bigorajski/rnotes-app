@@ -9,6 +9,15 @@
 .titleRow {
   padding: 16px 16px 0;
   border-bottom: 1px solid var(--mantine-color-default-border);
+  position: relative;
+}
+
+.saveStatusRow {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .titleInput {

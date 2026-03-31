@@ -2,11 +2,14 @@ import { useCallback, useMemo, useState } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { Text } from "@mantine/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { buildTree } from "../../utils/buildTree";
 import type { NoteRow } from "../../ipc/notes";
 import type { TreeNodeData } from "@mantine/core";
 import { renameNote, deleteNoteTree, createNote } from "../../ipc/notes";
+import { notifyError } from "../../utils/notify";
 import { InlineRenameInput } from "./InlineRenameInput";
 import { TreeNodeMenu } from "./TreeNodeMenu";
 import classes from "./NoteTree.module.css";
@@ -189,6 +192,7 @@ export function NoteTree({
         onNotesChanged();
       } catch (err) {
         console.error("Failed to rename note:", err);
+        notifyError("Rename failed", "Could not rename the note");
       } finally {
         setIsRenamingLoading(false);
       }
@@ -196,7 +200,7 @@ export function NoteTree({
     [onNotesChanged],
   );
 
-  const handleDelete = useCallback(
+  const doDelete = useCallback(
     async (id: string) => {
       try {
         await deleteNoteTree(id);
@@ -206,9 +210,33 @@ export function NoteTree({
         onNotesChanged();
       } catch (err) {
         console.error("Failed to delete note:", err);
+        notifyError("Delete failed", "Could not delete the note");
       }
     },
     [activeNoteId, setActiveNoteId, onNotesChanged],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      const noteToDelete = notes.find((n) => n.id === id);
+      const noteTitle = noteToDelete?.title ?? "this note";
+      const isFolder = noteToDelete?.is_folder ?? false;
+      const itemLabel = isFolder ? "folder" : "note";
+
+      modals.openConfirmModal({
+        title: `Archive ${itemLabel}`,
+        children: (
+          <Text size="sm">
+            Are you sure you want to archive &ldquo;{noteTitle}&rdquo;? You can restore it from the
+            archive later.
+          </Text>
+        ),
+        labels: { confirm: "Archive", cancel: "Cancel" },
+        confirmProps: { color: "red", "data-testid": "confirm-archive-btn" },
+        onConfirm: () => doDelete(id),
+      });
+    },
+    [notes, doDelete],
   );
 
   const handleCreateNote = useCallback(
@@ -226,6 +254,7 @@ export function NoteTree({
         onNotesChanged();
       } catch (err) {
         console.error("Failed to create note:", err);
+        notifyError("Create failed", "Could not create the note");
       }
     },
     [tree, setActiveNoteId, onNotesChanged],

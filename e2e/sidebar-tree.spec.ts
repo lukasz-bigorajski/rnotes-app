@@ -71,6 +71,9 @@ test("delete note appears in archive", async ({ page }) => {
 
   await page.getByText("Delete").click();
 
+  // Confirm archive in the confirmation dialog
+  await page.getByTestId("confirm-archive-btn").click();
+
   // Note should disappear from tree
   await expect(page.getByText("Test Note")).not.toBeVisible();
 
@@ -101,6 +104,12 @@ test("restore note from archive returns to tree", async ({ page }) => {
     .getByRole("button");
   await dotsButton.click();
   await page.getByText("Delete").click();
+
+  // Confirm archive in the confirmation dialog
+  await page.getByTestId("confirm-archive-btn").click();
+
+  // Wait for the modal to close
+  await expect(page.getByText(/Are you sure you want to archive/)).not.toBeVisible();
 
   // Switch to Archive
   await page.getByRole("button", { name: /Archive/ }).click();

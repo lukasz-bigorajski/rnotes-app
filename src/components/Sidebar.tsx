@@ -4,6 +4,7 @@ import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton, ActionIco
 import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard, IconSettings } from "@tabler/icons-react";
 import { createNote, listNotes, searchNotes } from "../ipc/notes";
 import type { NoteRow, SearchResult } from "../ipc/notes";
+import { notifyError } from "../utils/notify";
 import { DraggableTree } from "./sidebar/DraggableTree";
 import { ArchivePanel } from "./sidebar/ArchivePanel";
 import { ArchiveToggle } from "./sidebar/ArchiveToggle";
@@ -75,6 +76,7 @@ export function Sidebar({
       setActiveNoteId(note.id);
     } catch (err) {
       console.error("Failed to create note:", err);
+      notifyError("Create failed", "Could not create the note");
     }
   };
 
@@ -84,6 +86,7 @@ export function Sidebar({
       loadNotes();
     } catch (err) {
       console.error("Failed to create folder:", err);
+      notifyError("Create failed", "Could not create the folder");
     }
   };
 

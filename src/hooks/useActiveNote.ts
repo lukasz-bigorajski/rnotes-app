@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getNote, updateNote } from "../ipc/notes";
+import { notifyError } from "../utils/notify";
 import type { Note } from "../ipc/notes";
 
 export function useActiveNote(activeNoteId: string | null) {
@@ -22,6 +23,7 @@ export function useActiveNote(activeNoteId: string | null) {
       })
       .catch((err) => {
         console.error("Failed to load note:", err);
+        notifyError("Load error", "Could not load this note");
         setNote(null);
         noteRef.current = null;
       })
@@ -29,20 +31,16 @@ export function useActiveNote(activeNoteId: string | null) {
   }, [activeNoteId]);
 
   const saveNote = useCallback(
-    async (params: { id: string; content: string; plainText: string }) => {
+    async (params: { id: string; content: string; plainText: string }): Promise<void> => {
       const current = noteRef.current;
       if (!current) return;
 
-      try {
-        await updateNote({
-          id: params.id,
-          title: current.title,
-          content: params.content,
-          plainText: params.plainText,
-        });
-      } catch (err) {
-        console.error("Failed to save note:", err);
-      }
+      await updateNote({
+        id: params.id,
+        title: current.title,
+        content: params.content,
+        plainText: params.plainText,
+      });
     },
     [],
   );

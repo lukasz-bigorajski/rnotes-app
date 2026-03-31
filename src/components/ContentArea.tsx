@@ -6,6 +6,7 @@ import { NoteEditor } from "./editor/NoteEditor";
 import { useActiveNote } from "../hooks/useActiveNote";
 import { renameNote } from "../ipc/notes";
 import { useUserConfig } from "../context/UserConfigContext";
+import { notifyError } from "../utils/notify";
 import type { JSONContent } from "@tiptap/react";
 
 interface ContentAreaProps {
@@ -38,6 +39,7 @@ export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: Cont
         onNotesChanged?.();
       } catch (err) {
         console.error("Failed to rename note:", err);
+        notifyError("Rename failed", "Could not rename the note");
       }
     },
     [activeNoteId, onNotesChanged],

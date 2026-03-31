@@ -16,6 +16,8 @@ import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { createFindReplacePlugin } from "./findReplacePlugin";
 import { useAutoSave } from "../../hooks/useAutoSave";
+import type { SaveStatus } from "../../hooks/useAutoSave";
+import { SaveStatusIndicator } from "./SaveStatusIndicator";
 import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
@@ -63,7 +65,7 @@ interface NoteEditorProps {
   content: JSONContent | null;
   noteId?: string | null;
   title?: string;
-  onSave?: (params: { id: string; content: string; plainText: string }) => void;
+  onSave?: (params: { id: string; content: string; plainText: string }) => Promise<void>;
   onTitleChange?: (newTitle: string) => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
   autoSaveIntervalMs?: number;
@@ -89,6 +91,16 @@ export function NoteEditor({
   const titleSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNewNote = title === "Untitled";
   const [findBarOpen, setFindBarOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleStatusChange = useCallback((status: SaveStatus) => {
+    setSaveStatus(status);
+    if (status === "saved") {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+    }
+  }, []);
 
   // Keep localTitle in sync when the note changes (different noteId)
   useEffect(() => {
@@ -170,7 +182,8 @@ export function NoteEditor({
   useAutoSave({
     editor,
     noteId: noteId ?? null,
-    onSave: onSave ?? (() => {}),
+    onSave: onSave ?? (() => Promise.resolve()),
+    onStatusChange: handleStatusChange,
     debounceMs: autoSaveIntervalMs,
   });
 
@@ -354,6 +367,21 @@ export function NoteEditor({
           placeholder="Untitled"
           data-testid="note-title-input"
         />
+        <div className={classes.saveStatusRow}>
+          <SaveStatusIndicator
+            status={saveStatus}
+            onRetry={() => {
+              const currentEditor = editorRef.current;
+              const currentNoteId = noteIdRef.current;
+              if (!currentEditor || !currentNoteId || !onSaveRef.current) return;
+              onSaveRef.current({
+                id: currentNoteId,
+                content: JSON.stringify(currentEditor.getJSON()),
+                plainText: currentEditor.getText(),
+              });
+            }}
+          />
+        </div>
       </div>
       <EditorContent
         editor={editor}

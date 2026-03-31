@@ -4,6 +4,7 @@ import { IconNotes } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { getAllTasks, updateTaskChecked } from "../ipc/tasks";
 import type { NoteTaskWithNote } from "../ipc/tasks";
+import { notifyError } from "../utils/notify";
 import styles from "./TaskOverview.module.css";
 
 interface TaskOverviewProps {
@@ -81,6 +82,7 @@ export function TaskOverview({ onNavigateToNote }: TaskOverviewProps) {
         setTasks((prev) =>
           prev.map((t) => (t.id === task.id ? { ...t, is_checked: !newChecked } : t)),
         );
+        notifyError("Update failed", "Could not update the task");
       }
     },
     [],
