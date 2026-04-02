@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Popover, ActionIcon, Badge } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
-import { IconCalendar, IconX } from "@tabler/icons-react";
+import { Popover, ActionIcon, Badge, Stack, Text, Divider, Group, Button } from "@mantine/core";
+import { DatePicker } from "@mantine/dates";
+import { IconCalendar, IconX, IconChevronUp, IconChevronDown } from "@tabler/icons-react";
 
 /**
  * Format a date for display on a task badge.
@@ -42,20 +42,66 @@ export function TaskItemView({ node, updateAttributes }: NodeViewProps) {
   const dueDate = (node.attrs.dueDate as string | null) ?? null;
   const checked = (node.attrs.checked as boolean) ?? false;
 
-  const handleDateChange = useCallback(
-    (value: Date | null) => {
-      if (value) {
-        // Store as ISO 8601 string without timezone (local time)
-        const iso = new Date(value.getTime() - value.getTimezoneOffset() * 60000)
-          .toISOString()
-          .slice(0, 16);
-        updateAttributes({ dueDate: iso });
-      } else {
+  const pickerDate = dueDate ? new Date(dueDate) : null;
+  const pickerTime = dueDate ? dueDate.slice(11, 16) : "12:00";
+
+  // Local state so the calendar highlights the selected day immediately (before
+  // TipTap propagates the attribute update back through the component tree).
+  const [selectedDate, setSelectedDate] = useState<Date | null>(pickerDate);
+
+  // Local hour/minute state for the +/- controls
+  const [localHours, setLocalHours] = useState(() => parseInt(pickerTime.split(":")[0] ?? "12"));
+  const [localMinutes, setLocalMinutes] = useState(() => parseInt(pickerTime.split(":")[1] ?? "0"));
+
+  // Sync local state when the popover opens or the stored value changes externally
+  useEffect(() => {
+    if (opened) {
+      setSelectedDate(pickerDate);
+      const [h, m] = pickerTime.split(":").map(Number);
+      setLocalHours(isNaN(h) ? 12 : h);
+      setLocalMinutes(isNaN(m) ? 0 : m);
+    }
+  }, [opened, pickerTime]); // pickerDate intentionally omitted — derived from pickerTime
+
+  const buildAndStore = useCallback(
+    (date: Date | null, h: number, m: number) => {
+      if (!date) {
         updateAttributes({ dueDate: null });
+        return;
       }
-      setOpened(false);
+      const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m);
+      const iso = new Date(combined.getTime() - combined.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+      updateAttributes({ dueDate: iso });
     },
     [updateAttributes],
+  );
+
+  const handleDateChange = useCallback(
+    (value: Date | null) => {
+      setSelectedDate(value); // immediate visual feedback
+      buildAndStore(value, localHours, localMinutes);
+    },
+    [buildAndStore, localHours, localMinutes],
+  );
+
+  const adjustHours = useCallback(
+    (delta: number) => {
+      const newH = ((localHours + delta) % 24 + 24) % 24;
+      setLocalHours(newH);
+      if (selectedDate) buildAndStore(selectedDate, newH, localMinutes);
+    },
+    [localHours, localMinutes, selectedDate, buildAndStore],
+  );
+
+  const adjustMinutes = useCallback(
+    (delta: number) => {
+      const newM = ((localMinutes + delta) % 60 + 60) % 60;
+      setLocalMinutes(newM);
+      if (selectedDate) buildAndStore(selectedDate, localHours, newM);
+    },
+    [localHours, localMinutes, selectedDate, buildAndStore],
   );
 
   const handleClearDate = useCallback(
@@ -65,9 +111,6 @@ export function TaskItemView({ node, updateAttributes }: NodeViewProps) {
     },
     [updateAttributes],
   );
-
-  // Convert ISO string to Date for the picker
-  const pickerValue = dueDate ? new Date(dueDate) : null;
 
   return (
     <NodeViewWrapper as="li" data-checked={checked ? "true" : "false"}>
@@ -126,14 +169,68 @@ export function TaskItemView({ node, updateAttributes }: NodeViewProps) {
               <IconCalendar size={14} />
             </ActionIcon>
           </Popover.Target>
-          <Popover.Dropdown>
-            <DateTimePicker
-              value={pickerValue}
-              onChange={handleDateChange}
-              placeholder="Pick date & time"
-              clearable
-              data-testid="task-date-picker"
-            />
+          <Popover.Dropdown p="xs">
+            <Stack gap="xs" data-testid="task-date-picker">
+              <DatePicker
+                size="xs"
+                value={selectedDate}
+                onChange={handleDateChange}
+                highlightToday
+              />
+              <Divider />
+              <Group gap={2} justify="center" align="center" wrap="nowrap">
+                <Stack gap={0} align="center">
+                  <ActionIcon
+                    size={16}
+                    variant="subtle"
+                    disabled={!selectedDate}
+                    onClick={() => adjustHours(1)}
+                    style={{ padding: 0 }}
+                  >
+                    <IconChevronUp size={8} />
+                  </ActionIcon>
+                  <Text size="xs" fw={500} w={24} ta="center">
+                    {String(localHours).padStart(2, "0")}
+                  </Text>
+                  <ActionIcon
+                    size={16}
+                    variant="subtle"
+                    disabled={!selectedDate}
+                    onClick={() => adjustHours(-1)}
+                    style={{ padding: 0 }}
+                  >
+                    <IconChevronDown size={8} />
+                  </ActionIcon>
+                </Stack>
+                <Text size="xs" fw={600}>:</Text>
+                <Stack gap={0} align="center">
+                  <ActionIcon
+                    size={16}
+                    variant="subtle"
+                    disabled={!selectedDate}
+                    onClick={() => adjustMinutes(5)}
+                    style={{ padding: 0 }}
+                  >
+                    <IconChevronUp size={8} />
+                  </ActionIcon>
+                  <Text size="xs" fw={500} w={24} ta="center">
+                    {String(localMinutes).padStart(2, "0")}
+                  </Text>
+                  <ActionIcon
+                    size={16}
+                    variant="subtle"
+                    disabled={!selectedDate}
+                    onClick={() => adjustMinutes(-5)}
+                    style={{ padding: 0 }}
+                  >
+                    <IconChevronDown size={8} />
+                  </ActionIcon>
+                </Stack>
+              </Group>
+              <Button size="xs" onClick={() => setOpened(false)}>
+                Accept
+              </Button>
+            </Stack>
           </Popover.Dropdown>
         </Popover>
       </div>

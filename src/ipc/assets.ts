@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
 /**
  * Save an image file to the note's asset directory.
@@ -18,8 +18,9 @@ export function saveImage(params: { noteId: string; filename: string; data: Uint
 /**
  * Convert a relative asset path to an absolute URL the WebView can load.
  * @param assetPath - Relative path: `assets/{note_id}/{filename}`
- * @returns `asset://localhost/...` URL
+ * @returns `asset://localhost/...` URL (via Tauri's convertFileSrc for correct encoding)
  */
-export function getImageUrl(assetPath: string): Promise<string> {
-  return invoke("get_image_url", { assetPath });
+export async function getImageUrl(assetPath: string): Promise<string> {
+  const absolutePath = await invoke<string>("get_image_url", { assetPath });
+  return convertFileSrc(absolutePath);
 }

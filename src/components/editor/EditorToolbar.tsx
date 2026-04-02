@@ -1,4 +1,5 @@
 import { ActionIcon, Group, Menu, Popover, Portal, Text, TextInput } from "@mantine/core";
+import { TextSelection } from "@tiptap/pm/state";
 import {
   IconBold,
   IconItalic,
@@ -100,17 +101,25 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
 
   const openLinkPopover = () => {
     const existing = editor.getAttributes("link").href as string | undefined;
-    const url = existing ?? "";
+    const { from, to, empty } = editor.state.selection;
+
+    let url = existing ?? "";
+    if (!url && !empty) {
+      // If selected text looks like a URL, pre-fill with it
+      const selectedText = editor.state.doc.textBetween(from, to);
+      if (/^https?:\/\//.test(selectedText) || /^[\w-]+\.[\w-]+(\/|$)/.test(selectedText)) {
+        url = selectedText;
+      }
+    }
     setLinkUrl(url);
 
-    const selectionEmpty = editor.state.selection.empty;
+    const selectionEmpty = empty;
 
     if (!selectionEmpty) {
       // Text is selected — use toolbar-anchored popover
       setLinkOpened(true);
     } else {
       // No selection — show floating dialog near cursor
-      const from = editor.state.selection.from;
       const coords = editor.view.coordsAtPos(from);
       setFloatingPos({ x: coords.left, y: coords.bottom + 4 });
       setFloatingLink(true);
@@ -286,7 +295,50 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
         <ActionIcon
           variant={editor.isActive("codeBlock") ? "filled" : "subtle"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          onClick={() => {
+            const { from, to, empty } = editor.state.selection;
+            if (!empty) {
+              // Check if selection spans multiple blocks
+              let blockCount = 0;
+              editor.state.doc.nodesBetween(from, to, (node) => {
+                if (node.isBlock) blockCount++;
+              });
+              if (blockCount > 1) {
+                // Collect text across blocks, join with newlines, insert single code block
+                const selectedText = editor.state.doc.textBetween(from, to, "\n");
+                editor
+                  .chain()
+                  .focus()
+                  .command(({ tr, state }) => {
+                    const codeBlock = state.schema.nodes.codeBlock.create(
+                      null,
+                      state.schema.text(selectedText),
+                    );
+                    tr.replaceWith(from, to, codeBlock);
+                    // If the code block landed at the end of the document there is no
+                    // paragraph to move into — insert one so the cursor has somewhere to go.
+                    const afterPos = from + codeBlock.nodeSize;
+                    if (afterPos >= tr.doc.content.size) {
+                      tr.insert(afterPos, state.schema.nodes.paragraph.create());
+                    }
+                    // Place cursor inside the code block
+                    tr.setSelection(TextSelection.create(tr.doc, from + 1));
+                    return true;
+                  })
+                  .run();
+                return;
+              }
+            }
+            const wasCodeBlock = editor.isActive("codeBlock");
+            editor.chain().focus().toggleCodeBlock().run();
+            // After creating a code block, ensure cursor is focused inside it.
+            // The React NodeView can steal focus during mount, so re-focus.
+            if (!wasCodeBlock) {
+              requestAnimationFrame(() => {
+                editor.commands.focus();
+              });
+            }
+          }}
           title="Code Block"
         >
           <IconCodeDots size={16} />

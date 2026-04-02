@@ -28,17 +28,13 @@ pub fn save_image(
     asset_service::save_asset(&app, &note_id, &filename, data).map_err(|e| e.to_string())
 }
 
-/// Convert a relative asset path to a file:// URL for use in <img src>.
+/// Convert a relative asset path to an absolute filesystem path.
+/// The frontend uses Tauri's `convertFileSrc` to turn this into a loadable asset:// URL.
 #[tauri::command]
 pub fn get_image_url(app: AppHandle, asset_path: String) -> Result<String, String> {
     use crate::services::config_service;
 
     let data_dir = config_service::resolve_data_dir(&app).map_err(|e| e.to_string())?;
     let full_path = data_dir.join(&asset_path);
-
-    // Use the Tauri asset protocol so the WebView can load local files.
-    // convertFileSrc() on the frontend produces "asset://localhost/<absolute_path>".
-    let url = format!("asset://localhost{}", full_path.to_string_lossy());
-
-    Ok(url)
+    Ok(full_path.to_string_lossy().to_string())
 }
