@@ -26,7 +26,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     group: "General",
     shortcuts: [
       { action: "Open keyboard shortcuts", keys: [[MOD, "/"]] },
-      { action: "Global search", keys: [[MOD, "K"]] },
+      { action: "Global search", keys: [[MOD, "K"], [MOD, SHIFT, "F"]] },
+      { action: "Global find & replace", keys: [[MOD, SHIFT, "R"]] },
       { action: "Create new note", keys: [[MOD, "N"]] },
       { action: "Create new folder", keys: [[MOD, SHIFT, "N"]] },
       { action: "Force save note", keys: [[MOD, "S"]] },

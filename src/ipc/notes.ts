@@ -101,3 +101,11 @@ export interface SearchResult {
 export function searchNotes(query: string): Promise<SearchResult[]> {
   return invoke("search_notes", { query });
 }
+
+export function performGlobalReplace(
+  noteId: string,
+  findText: string,
+  replaceText: string,
+): Promise<void> {
+  return invoke("global_replace", { noteId, findText, replaceText });
+}

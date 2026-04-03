@@ -199,6 +199,46 @@ pub fn restore_note(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn global_replace(
+    conn: &Connection,
+    note_id: &str,
+    find_text: &str,
+    replace_text: &str,
+) -> AppResult<()> {
+    // Get the note to check it exists and is not deleted
+    let note = notes::get_by_id(conn, note_id)?;
+    
+    // If it's a folder, skip
+    if note.is_folder {
+        return Ok(());
+    }
+
+    let content = note.content.unwrap_or_default();
+    
+    // Perform simple string replacement in the content
+    // This works for TipTap JSON because text content appears as plain strings in text node objects
+    let new_content = content.replace(find_text, replace_text);
+    
+    // If the content changed, update the note
+    if new_content != content {
+        let now = now_ms();
+        let tx = conn.unchecked_transaction()?;
+        
+        // Get the plaintext from FTS to extract the new plaintext
+        let old_plain_text = fts::get_body(&tx, note_id)?
+            .unwrap_or_default();
+        let new_plain_text = old_plain_text.replace(find_text, replace_text);
+        
+        // Update the note with new content and plaintext
+        notes::update(&tx, note_id, &note.title, &new_content, now)?;
+        fts::upsert(&tx, note_id, &note.title, &new_plain_text)?;
+        
+        tx.commit()?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

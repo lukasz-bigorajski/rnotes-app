@@ -12,11 +12,19 @@ pub struct SearchResult {
 }
 
 /// Sanitize an FTS5 query string to avoid syntax errors from special chars.
-/// Wraps the query in double quotes so it is treated as a phrase search.
+/// For queries with 4+ chars, wraps in double quotes for phrase search.
+/// For queries under 4 chars, uses prefix search syntax ("term"*) to allow partial word matching.
 fn sanitize_fts_query(query: &str) -> String {
-    // Escape any embedded double-quotes by doubling them, then wrap in quotes.
+    // Escape any embedded double-quotes by doubling them
     let escaped = query.replace('"', "\"\"");
-    format!("\"{}\"", escaped)
+    
+    // Use prefix search for short queries (< 4 chars) to enable 3-char searches
+    if escaped.len() < 4 {
+        format!("\"{}\"*", escaped)
+    } else {
+        // Phrase search for longer queries
+        format!("\"{}\"", escaped)
+    }
 }
 
 pub fn search(conn: &Connection, query: &str) -> AppResult<Vec<SearchResult>> {
@@ -236,5 +244,24 @@ mod tests {
 
         let results = search(&conn, "common").unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_search_three_character_query() {
+        let conn = test_connection();
+        insert_note(&conn, "note-1", "Hello World");
+        insert_note(&conn, "note-2", "Rust Programming");
+        upsert(&conn, "note-1", "Hello World", "This is a hello note").unwrap();
+        upsert(&conn, "note-2", "Rust Programming", "Learn Rust today").unwrap();
+
+        // 3-char search should find notes with prefix match
+        let results = search(&conn, "hel").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Hello World");
+
+        // Another 3-char search
+        let results = search(&conn, "lea").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Rust Programming");
     }
 }

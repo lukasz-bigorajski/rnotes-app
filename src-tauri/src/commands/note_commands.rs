@@ -89,3 +89,14 @@ pub fn search_notes(state: State<'_, DbState>, query: String) -> Result<Vec<Sear
     let conn = lock_db(&state)?;
     fts::search(&conn, &query)
 }
+
+#[tauri::command]
+pub fn global_replace(
+    state: State<'_, DbState>,
+    note_id: String,
+    find_text: String,
+    replace_text: String,
+) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    note_service::global_replace(&conn, &note_id, &find_text, &replace_text)
+}

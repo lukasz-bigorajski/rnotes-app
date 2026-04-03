@@ -6,6 +6,7 @@ import { ContentArea } from "./components/ContentArea";
 import { TaskOverview } from "./components/TaskOverview";
 import { Settings } from "./components/Settings";
 import { GlobalSearch } from "./components/GlobalSearch";
+import { GlobalFindReplace } from "./components/GlobalFindReplace";
 import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
 import { UserConfigProvider } from "./context/UserConfigContext";
 
@@ -21,11 +22,14 @@ function AppInner() {
   const createFolderRef = useRef<(() => void) | null>(null);
   const forceSaveRef = useRef<(() => void) | null>(null);
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
+  const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
 
   useHotkeys([
     ["mod+K", () => setGlobalSearchOpened(true)],
     ["ctrl+K", () => setGlobalSearchOpened(true)],
+    ["mod+shift+F", () => setGlobalSearchOpened(true)],
+    ["mod+shift+R", () => setGlobalFindReplaceOpened(true)],
     ["mod+/", () => setShortcutsDialogOpened(true)],
     ["mod+N", () => createNoteRef.current?.()],
     ["mod+shift+N", () => createFolderRef.current?.()],
@@ -71,6 +75,10 @@ function AppInner() {
         opened={globalSearchOpened}
         onClose={() => setGlobalSearchOpened(false)}
         onSelectNote={handleGlobalSearchSelect}
+      />
+      <GlobalFindReplace
+        opened={globalFindReplaceOpened}
+        onClose={() => setGlobalFindReplaceOpened(false)}
       />
       <KeyboardShortcutsDialog
         opened={shortcutsDialogOpened}
