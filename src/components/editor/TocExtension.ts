@@ -14,6 +14,8 @@ export const TocExtension = Node.create({
 
   atom: true,
 
+  selectable: true,
+
   addAttributes() {
     return {
       headings: {
@@ -42,10 +44,14 @@ export const TocExtension = Node.create({
   },
 
   addNodeView() {
-    return ({ node, editor }: NodeViewRendererProps) => {
+    return ({ node, editor, getPos }: NodeViewRendererProps) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "toc-wrapper";
+      wrapper.setAttribute("data-type", "toc");
+      wrapper.setAttribute("contenteditable", "false");
+
       const dom = document.createElement("div");
-      dom.setAttribute("data-type", "toc");
-      dom.setAttribute("contenteditable", "false");
+      dom.style.position = "relative";
 
       const headings: TocHeading[] = node.attrs.headings ?? [];
 
@@ -86,7 +92,24 @@ export const TocExtension = Node.create({
         dom.appendChild(nav);
       }
 
-      return { dom };
+      // Add delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "toc-delete-btn";
+      deleteBtn.innerHTML = "×";
+      deleteBtn.title = "Delete Table of Contents";
+      deleteBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const pos = typeof getPos === "function" ? getPos() : 0;
+        if (pos !== undefined) {
+          const nodeSize = node.nodeSize;
+          editor.chain().focus().deleteRange({ from: pos, to: pos + nodeSize }).run();
+        }
+      });
+      dom.appendChild(deleteBtn);
+
+      wrapper.appendChild(dom);
+      return { dom: wrapper };
     };
   },
 });

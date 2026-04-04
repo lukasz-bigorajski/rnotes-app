@@ -12,6 +12,7 @@ import { TaskItemView } from "./TaskItemView";
 import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
+import { HeadingShortcutsExtension } from "./HeadingShortcutsExtension";
 import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { createFindReplacePlugin } from "./findReplacePlugin";
@@ -186,6 +187,7 @@ export function NoteEditor({
           markdownParserRef.current?.(text);
         },
       }),
+      HeadingShortcutsExtension,
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
