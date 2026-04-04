@@ -22,6 +22,8 @@ import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
 import { getImageUrl } from "../../ipc/assets";
+import { Markdown } from "tiptap-markdown";
+import { PasteExtension, isMarkdownContent } from "./PasteExtension";
 
 import classes from "./NoteEditor.module.css";
 
@@ -93,6 +95,7 @@ export function NoteEditor({
   const [findBarOpen, setFindBarOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markdownParserRef = useRef<((text: string) => void) | null>(null);
 
   const handleStatusChange = useCallback((status: SaveStatus) => {
     setSaveStatus(status);
@@ -174,6 +177,15 @@ export function NoteEditor({
           return ReactNodeViewRenderer(TaskItemView);
         },
       }).configure({ nested: true }),
+      Markdown.configure({
+        transformPastedText: false, // We handle this manually
+        transformCopiedText: false,
+      }),
+      PasteExtension.configure({
+        onMarkdownDetected: (text) => {
+          markdownParserRef.current?.(text);
+        },
+      }),
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
@@ -186,6 +198,29 @@ export function NoteEditor({
     onStatusChange: handleStatusChange,
     debounceMs: autoSaveIntervalMs,
   });
+
+  // Set up markdown parser callback
+  useEffect(() => {
+    if (!editor) return;
+
+    markdownParserRef.current = (text: string) => {
+      // Parse markdown using tiptap-markdown
+      if (editor && isMarkdownContent(text)) {
+        // Insert as formatted markdown content using the Markdown extension's parser
+        // The Markdown extension provides a parse method to convert markdown to Tiptap JSON
+        try {
+          editor.commands.insertContent(text, { parseOptions: { preserveWhitespace: true } });
+        } catch (err) {
+          console.error("Failed to parse markdown:", err);
+          // Fallback to plain text insertion
+          editor.commands.insertContent({
+            type: "text",
+            text: text,
+          });
+        }
+      }
+    };
+  }, [editor]);
 
   // When a note is loaded, resolve any relative asset paths to absolute URLs.
   useEffect(() => {
@@ -289,6 +324,25 @@ export function NoteEditor({
         return;
       }
 
+      // Cmd+Shift+V — paste as plain text
+      if (e.key === "v" && e.shiftKey) {
+        e.preventDefault();
+        const currentEditor = editorRef.current;
+        if (!currentEditor) return;
+        navigator.clipboard
+          .readText()
+          .then((text: string) => {
+            currentEditor.commands.insertContent({
+              type: "text",
+              text,
+            });
+          })
+          .catch((err: Error) => {
+            console.error("Failed to read clipboard:", err);
+          });
+        return;
+      }
+
       // Cmd+Shift+1..9 — editor structure shortcuts
       if (e.shiftKey) {
         const currentEditor = editorRef.current;
@@ -335,6 +389,129 @@ export function NoteEditor({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Set up context menu for "Paste as plain text" option
+  useEffect(() => {
+    const editorContent = document.querySelector(`.${classes.editorContent}`);
+    if (!editorContent) return;
+
+    const handleContextMenu = (event: Event) => {
+      const e = event as MouseEvent;
+      e.preventDefault();
+
+      // Get clipboard text
+      navigator.clipboard
+        .readText()
+        .then((text: string) => {
+          // Create custom context menu
+          const menu = document.createElement("div");
+          menu.className = "custom-context-menu";
+          menu.style.cssText = `
+            position: fixed;
+            top: ${e.clientY}px;
+            left: ${e.clientX}px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 200px;
+            overflow: hidden;
+          `;
+
+          // Menu items
+          const items = [
+            { label: "Cut", action: "cut", enabled: document.queryCommandSupported("cut") },
+            {
+              label: "Copy",
+              action: "copy",
+              enabled: document.queryCommandSupported("copy"),
+            },
+            {
+              label: "Paste",
+              action: "paste",
+              enabled: text.length > 0,
+            },
+            {
+              label: "Paste as plain text",
+              action: "pasteAsPlainText",
+              enabled: text.length > 0,
+            },
+          ];
+
+          items.forEach((item) => {
+            const button = document.createElement("button");
+            button.textContent = item.label;
+            button.style.cssText = `
+              width: 100%;
+              padding: 8px 12px;
+              text-align: left;
+              background: none;
+              border: none;
+              cursor: ${item.enabled ? "pointer" : "not-allowed"};
+              color: ${item.enabled ? "inherit" : "#ccc"};
+              font-size: 14px;
+              transition: background-color 0.1s;
+            `;
+
+            if (item.enabled) {
+              button.onmouseover = () => {
+                button.style.backgroundColor = "#f0f0f0";
+              };
+              button.onmouseout = () => {
+                button.style.backgroundColor = "transparent";
+              };
+              button.onclick = () => {
+                if (item.action === "cut") {
+                  document.execCommand("cut");
+                } else if (item.action === "copy") {
+                  document.execCommand("copy");
+                } else if (item.action === "paste") {
+                  document.execCommand("paste");
+                } else if (item.action === "pasteAsPlainText") {
+                  const currentEditor = editorRef.current;
+                  if (currentEditor) {
+                    currentEditor.commands.insertContent({
+                      type: "text",
+                      text,
+                    });
+                  }
+                }
+                menu.remove();
+              };
+            }
+
+            menu.appendChild(button);
+          });
+
+          document.body.appendChild(menu);
+
+          // Close menu on click outside or escape
+          const closeMenu = () => {
+            menu.remove();
+            document.removeEventListener("click", closeMenu);
+            document.removeEventListener("keydown", handleEscapeKey);
+          };
+
+          const handleEscapeKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+              closeMenu();
+            }
+          };
+
+          document.addEventListener("click", closeMenu);
+          document.addEventListener("keydown", handleEscapeKey);
+        })
+        .catch((err) => {
+          console.error("Failed to read clipboard:", err);
+        });
+    };
+
+    editorContent.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      editorContent.removeEventListener("contextmenu", handleContextMenu);
+    };
   }, []);
 
   if (!editor) return null;
