@@ -15,6 +15,7 @@ import { TocExtension } from "./TocExtension";
 import { HeadingShortcutsExtension } from "./HeadingShortcutsExtension";
 import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
+import { TableMenu } from "./TableMenu";
 import { createFindReplacePlugin } from "./findReplacePlugin";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { SaveStatus } from "../../hooks/useAutoSave";
@@ -567,6 +568,7 @@ export function NoteEditor({
         className={classes.editorContent}
         spellCheck={spellCheck}
       />
+      <TableMenu editor={editor} />
     </div>
   );
 }
