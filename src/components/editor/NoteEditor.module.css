@@ -451,22 +451,39 @@
 }
 
 /* ── Embedded images ── */
-/* Images are rendered via ImageNodeView; the span wrapper handles layout. */
+/* Images are rendered via ImageNodeView; layout driven by data-align attribute. */
 .editorContent :global(.tiptap [data-testid="image-node-view"]) {
   display: block;
+  width: fit-content;
   margin: 8px auto;
 }
 
-/* Left-aligned images */
-.editorContent :global(.tiptap [data-testid="image-node-view"][class*="alignLeft"]) {
+.editorContent :global(.tiptap [data-testid="image-node-view"][data-align="left"]) {
   margin-left: 0;
   margin-right: auto;
 }
 
-/* Right-aligned images */
-.editorContent :global(.tiptap [data-testid="image-node-view"][class*="alignRight"]) {
+.editorContent :global(.tiptap [data-testid="image-node-view"][data-align="right"]) {
   margin-left: auto;
   margin-right: 0;
+}
+
+/* Float modes — text wraps around the image */
+.editorContent :global(.tiptap [data-testid="image-node-view"][data-align="wrap-left"]) {
+  display: inline-block;
+  float: left;
+  margin: 4px 16px 8px 0;
+}
+
+.editorContent :global(.tiptap [data-testid="image-node-view"][data-align="wrap-right"]) {
+  display: inline-block;
+  float: right;
+  margin: 4px 0 8px 16px;
+}
+
+/* Clear float after paragraph that follows a floated image */
+.editorContent :global(.tiptap [data-testid="image-node-view"][data-align^="wrap"] + *) {
+  overflow: auto;
 }
 
 /* Suppress ProseMirror's default selected-node outline (our NodeView handles it) */

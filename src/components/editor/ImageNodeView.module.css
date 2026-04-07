@@ -145,21 +145,11 @@
   color: var(--mantine-color-blue-filled);
 }
 
-/* ── Alignment classes applied to wrapper ── */
-.alignLeft {
-  display: block;
-  margin-right: auto;
-  margin-left: 0;
-}
-
-.alignCenter {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.alignRight {
-  display: block;
-  margin-left: auto;
-  margin-right: 0;
+/* ── Toolbar separator ── */
+.separator {
+  width: 1px;
+  height: 16px;
+  background: var(--mantine-color-default-border);
+  margin: 0 2px;
+  flex-shrink: 0;
 }

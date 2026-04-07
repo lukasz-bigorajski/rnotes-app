@@ -141,11 +141,7 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
     [updateAttributes],
   );
 
-  const wrapperClass = [
-    classes.imageWrapper,
-    selected ? classes.selected : "",
-    align === "left" ? classes.alignLeft : align === "right" ? classes.alignRight : classes.alignCenter,
-  ]
+  const wrapperClass = [classes.imageWrapper, selected ? classes.selected : ""]
     .filter(Boolean)
     .join(" ");
 
@@ -156,10 +152,21 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
       as="span"
       className={wrapperClass}
       data-testid="image-node-view"
+      data-align={align}
       data-drag-handle
     >
       {/* Alignment toolbar — only visible when selected */}
       <div className={classes.alignToolbar} contentEditable={false}>
+        <button
+          className={`${classes.alignBtn} ${align === "wrap-left" ? classes.active : ""}`}
+          onClick={setAlign("wrap-left")}
+          title="Wrap text (left)"
+          aria-label="Float image left with text wrap"
+          data-testid="image-wrap-left"
+        >
+          &#x25E7;
+        </button>
+        <span className={classes.separator} />
         <button
           className={`${classes.alignBtn} ${align === "left" ? classes.active : ""}`}
           onClick={setAlign("left")}
@@ -186,6 +193,16 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
           data-testid="image-align-right"
         >
           &#8677;
+        </button>
+        <span className={classes.separator} />
+        <button
+          className={`${classes.alignBtn} ${align === "wrap-right" ? classes.active : ""}`}
+          onClick={setAlign("wrap-right")}
+          title="Wrap text (right)"
+          aria-label="Float image right with text wrap"
+          data-testid="image-wrap-right"
+        >
+          &#x25E8;
         </button>
       </div>
 
