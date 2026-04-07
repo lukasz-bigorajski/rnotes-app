@@ -11,6 +11,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let data_dir = services::config_service::resolve_data_dir(app.handle())?;

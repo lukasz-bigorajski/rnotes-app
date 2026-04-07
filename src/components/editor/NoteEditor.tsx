@@ -4,6 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Details, DetailsSummary, DetailsContent } from "@tiptap/extension-details";
 import Image from "@tiptap/extension-image";
+import { ImageNodeView } from "./ImageNodeView";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -151,10 +152,40 @@ export function NoteEditor({
         placeholder: "Start writing…",
       }),
       TocExtension,
-      Image.configure({
+      Image.extend({
+        // Add width, height, and align attributes so they persist in JSON
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            width: {
+              default: null,
+              parseHTML: (el) => {
+                const v = el.getAttribute("width");
+                return v ? parseInt(v, 10) : null;
+              },
+              renderHTML: (attrs) => (attrs.width ? { width: String(attrs.width) } : {}),
+            },
+            height: {
+              default: null,
+              parseHTML: (el) => {
+                const v = el.getAttribute("height");
+                return v ? parseInt(v, 10) : null;
+              },
+              renderHTML: (attrs) => (attrs.height ? { height: String(attrs.height) } : {}),
+            },
+            align: {
+              default: "center",
+              parseHTML: (el) => el.getAttribute("data-align") ?? "center",
+              renderHTML: (attrs) => ({ "data-align": attrs.align ?? "center" }),
+            },
+          };
+        },
+        addNodeView() {
+          return ReactNodeViewRenderer(ImageNodeView, { as: "span" });
+        },
+      }).configure({
         inline: false,
         allowBase64: false,
-        HTMLAttributes: { style: "max-width: 100%;" },
       }),
       Table.configure({ resizable: false }),
       TableRow,

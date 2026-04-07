@@ -1,0 +1,165 @@
+.imageWrapper {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+  line-height: 0;
+  /* Remove block margin — the paragraph/block node handles spacing */
+}
+
+.imageWrapper img {
+  display: block;
+  border-radius: var(--mantine-radius-sm);
+  cursor: default;
+  max-width: 100%;
+}
+
+/* Selected state outline */
+.imageWrapper.selected img {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: 2px;
+}
+
+/* Hover state */
+.imageWrapper:not(.selected) img:hover {
+  box-shadow: 0 0 0 2px var(--mantine-color-blue-3);
+}
+
+/* ── Resize handles ── */
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: var(--mantine-color-blue-5);
+  border: 1.5px solid white;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.imageWrapper.selected .handle {
+  opacity: 1;
+}
+
+/* Corner positions */
+.handleNW {
+  top: -5px;
+  left: -5px;
+  cursor: nw-resize;
+}
+
+.handleNE {
+  top: -5px;
+  right: -5px;
+  cursor: ne-resize;
+}
+
+.handleSW {
+  bottom: -5px;
+  left: -5px;
+  cursor: sw-resize;
+}
+
+.handleSE {
+  bottom: -5px;
+  right: -5px;
+  cursor: se-resize;
+}
+
+/* Edge handles */
+.handleN {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: n-resize;
+}
+
+.handleS {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: s-resize;
+}
+
+.handleW {
+  top: 50%;
+  left: -5px;
+  transform: translateY(-50%);
+  cursor: w-resize;
+}
+
+.handleE {
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  cursor: e-resize;
+}
+
+/* ── Alignment toolbar ── */
+.alignToolbar {
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  background: var(--mantine-color-default);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  padding: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+}
+
+.imageWrapper.selected .alignToolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.alignBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--mantine-radius-xs);
+  background: transparent;
+  cursor: pointer;
+  color: var(--mantine-color-text);
+  font-size: 12px;
+  padding: 0;
+  transition: background-color 0.1s ease;
+}
+
+.alignBtn:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.alignBtn.active {
+  background-color: var(--mantine-color-blue-light);
+  color: var(--mantine-color-blue-filled);
+}
+
+/* ── Alignment classes applied to wrapper ── */
+.alignLeft {
+  display: block;
+  margin-right: auto;
+  margin-left: 0;
+}
+
+.alignCenter {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.alignRight {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
+}

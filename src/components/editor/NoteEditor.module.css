@@ -451,22 +451,27 @@
 }
 
 /* ── Embedded images ── */
-.editorContent :global(.tiptap img) {
+/* Images are rendered via ImageNodeView; the span wrapper handles layout. */
+.editorContent :global(.tiptap [data-testid="image-node-view"]) {
   display: block;
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--mantine-radius-sm);
   margin: 8px auto;
-  cursor: default;
 }
 
+/* Left-aligned images */
+.editorContent :global(.tiptap [data-testid="image-node-view"][class*="alignLeft"]) {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Right-aligned images */
+.editorContent :global(.tiptap [data-testid="image-node-view"][class*="alignRight"]) {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* Suppress ProseMirror's default selected-node outline (our NodeView handles it) */
 .editorContent :global(.tiptap img.ProseMirror-selectednode) {
-  outline: 2px solid var(--mantine-color-blue-5);
-  outline-offset: 2px;
-}
-
-.editorContent :global(.tiptap img:hover) {
-  box-shadow: 0 0 0 2px var(--mantine-color-blue-3);
+  outline: none;
 }
 
 /* ── Collapsible sections (details/summary) ── */
