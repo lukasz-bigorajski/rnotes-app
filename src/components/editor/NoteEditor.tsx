@@ -70,6 +70,8 @@ interface NoteEditorProps {
   content: JSONContent | null;
   noteId?: string | null;
   title?: string;
+  createdAt?: number;
+  updatedAt?: number;
   onSave?: (params: { id: string; content: string; plainText: string }) => Promise<void>;
   onTitleChange?: (newTitle: string) => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
@@ -83,6 +85,8 @@ export function NoteEditor({
   content,
   noteId,
   title = "Untitled",
+  createdAt,
+  updatedAt,
   onSave,
   onTitleChange,
   forceSaveRef,
@@ -562,7 +566,13 @@ export function NoteEditor({
         } as React.CSSProperties
       }
     >
-      <EditorToolbar editor={editor} noteId={noteId} />
+      <EditorToolbar
+        editor={editor}
+        noteId={noteId}
+        title={localTitle}
+        createdAt={createdAt}
+        updatedAt={updatedAt}
+      />
       {findBarOpen && (
         <FindReplaceBar editor={editor} onClose={() => setFindBarOpen(false)} />
       )}

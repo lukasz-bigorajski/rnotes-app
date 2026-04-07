@@ -73,6 +73,8 @@ export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: Cont
         content={parsedContent}
         noteId={activeNoteId}
         title={note?.title ?? "Untitled"}
+        createdAt={note?.created_at}
+        updatedAt={note?.updated_at}
         onSave={saveNote}
         onTitleChange={handleTitleChange}
         forceSaveRef={forceSaveRef}

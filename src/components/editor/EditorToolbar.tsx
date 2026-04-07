@@ -20,6 +20,7 @@ import {
   IconChevronDown,
   IconPhoto,
   IconTable,
+  IconDownload,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
@@ -27,10 +28,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import classes from "./EditorToolbar.module.css";
 import type { TocHeading } from "./TocExtension";
 import { saveImage, getImageUrl } from "../../ipc/assets";
+import { exportNoteAsJson, exportNoteAsPdf } from "../../utils/exportNote";
 
 interface EditorToolbarProps {
   editor: Editor;
   noteId?: string | null;
+  title?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 function slugify(text: string): string {
@@ -63,7 +68,7 @@ function extractHeadings(doc: JSONContent): TocHeading[] {
   return headings;
 }
 
-export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
+export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, updatedAt }: EditorToolbarProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpened, setLinkOpened] = useState(false);
   const [floatingLink, setFloatingLink] = useState(false);
@@ -155,6 +160,21 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
     },
     [editor, noteId],
   );
+
+  const handleExportJson = useCallback(() => {
+    if (!noteId) return;
+    exportNoteAsJson({
+      noteId,
+      title,
+      content: editor.getJSON(),
+      createdAt: createdAt ?? Date.now(),
+      updatedAt: updatedAt ?? Date.now(),
+    });
+  }, [editor, noteId, title, createdAt, updatedAt]);
+
+  const handleExportPdf = useCallback(() => {
+    exportNoteAsPdf({ title, htmlContent: editor.getHTML() });
+  }, [editor, title]);
 
   const generateToc = () => {
     const doc = editor.getJSON();
@@ -505,6 +525,30 @@ export function EditorToolbar({ editor, noteId }: EditorToolbarProps) {
         >
           <IconArrowForwardUp size={16} />
         </ActionIcon>
+
+        <div className={classes.separator} />
+
+        <Menu position="bottom-end" withinPortal>
+          <Menu.Target>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Export"
+              data-testid="export-menu-button"
+              disabled={!noteId}
+            >
+              <IconDownload size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item onClick={handleExportJson} data-testid="export-json-item">
+              Export as JSON
+            </Menu.Item>
+            <Menu.Item onClick={handleExportPdf} data-testid="export-pdf-item">
+              Export as PDF
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </Group>
 
       {floatingLink && (
