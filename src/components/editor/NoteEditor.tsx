@@ -27,6 +27,15 @@ import type { MutableRefObject } from "react";
 import { getImageUrl } from "../../ipc/assets";
 import { Markdown } from "tiptap-markdown";
 import { PasteExtension, isMarkdownContent } from "./PasteExtension";
+import {
+  classifyLink,
+  extractNoteId,
+  isTrusted,
+  trustSite,
+  openLink,
+} from "../../utils/linkHandler";
+import { modals } from "@mantine/modals";
+import { Text, Checkbox } from "@mantine/core";
 
 import classes from "./NoteEditor.module.css";
 
@@ -79,6 +88,7 @@ interface NoteEditorProps {
   fontSize?: number;
   fontFamily?: string;
   spellCheck?: boolean;
+  onNavigateToNote?: (noteId: string) => void;
 }
 
 export function NoteEditor({
@@ -94,6 +104,7 @@ export function NoteEditor({
   fontSize = 16,
   fontFamily = "system",
   spellCheck = true,
+  onNavigateToNote,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localTitle, setLocalTitle] = useState(title);
@@ -132,6 +143,7 @@ export function NoteEditor({
         link: {
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+          protocols: [{ scheme: "rnotes", optionalSlashes: true }],
         },
       }).extend({
         addProseMirrorPlugins() {
@@ -276,6 +288,77 @@ export function NoteEditor({
     };
     // Only re-run when the note itself changes, not on every content update.
   }, [noteId]);
+
+  // Intercept link clicks in the editor
+  const onNavigateToNoteRef = useRef(onNavigateToNote);
+  onNavigateToNoteRef.current = onNavigateToNote;
+
+  useEffect(() => {
+    const editorEl = editor?.view?.dom;
+    if (!editorEl) return;
+
+    const handleLinkClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest("a[href]");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const linkType = classifyLink(href);
+
+      if (linkType === "internal-note") {
+        const noteId = extractNoteId(href);
+        if (noteId) onNavigateToNoteRef.current?.(noteId);
+        return;
+      }
+
+      if (linkType === "local-file") {
+        openLink(href);
+        return;
+      }
+
+      // External link
+      if (isTrusted(href)) {
+        openLink(href);
+        return;
+      }
+
+      let shouldTrust = false;
+      modals.openConfirmModal({
+        title: "Open external link",
+        children: (
+          <>
+            <Text size="sm">
+              You are about to open an external link:
+            </Text>
+            <Text size="sm" fw={500} mt="xs" style={{ wordBreak: "break-all" }}>
+              {href}
+            </Text>
+            <Checkbox
+              mt="md"
+              label="Don't ask again for this site"
+              onChange={(e) => {
+                shouldTrust = e.currentTarget.checked;
+              }}
+              data-testid="trust-site-checkbox"
+            />
+          </>
+        ),
+        labels: { confirm: "Open", cancel: "Cancel" },
+        confirmProps: { "data-testid": "confirm-open-link-btn" },
+        onConfirm: () => {
+          if (shouldTrust) trustSite(href);
+          openLink(href);
+        },
+      });
+    };
+
+    editorEl.addEventListener("click", handleLinkClick);
+    return () => editorEl.removeEventListener("click", handleLinkClick);
+  }, [editor]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

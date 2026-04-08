@@ -118,6 +118,7 @@ function AppInner() {
               activeNoteId={activeNoteId}
               onNotesChanged={handleNotesChanged}
               forceSaveRef={forceSaveRef}
+              onNavigateToNote={handleNavigateToNote}
             />
           )}
         </AppShell.Main>

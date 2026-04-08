@@ -91,6 +91,13 @@ async function installTauriMock(page: Page) {
           return Promise.resolve();
         }
 
+        // Mock opener plugin — record calls on window for test assertions
+        if (cmd === "plugin:opener|open_url" || cmd === "plugin:opener|open_path") {
+          const opened = ((window as any).__opened_links ??= []) as string[];
+          opened.push((args?.url ?? args?.path) as string);
+          return Promise.resolve();
+        }
+
         switch (cmd) {
           case "create_note": {
             const now = Date.now();

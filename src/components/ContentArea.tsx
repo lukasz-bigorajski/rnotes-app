@@ -13,9 +13,15 @@ interface ContentAreaProps {
   activeNoteId: string | null;
   onNotesChanged?: () => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
+  onNavigateToNote?: (noteId: string) => void;
 }
 
-export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: ContentAreaProps) {
+export function ContentArea({
+  activeNoteId,
+  onNotesChanged,
+  forceSaveRef,
+  onNavigateToNote,
+}: ContentAreaProps) {
   const { note, loading, saveNote } = useActiveNote(activeNoteId);
   const { config } = useUserConfig();
 
@@ -82,6 +88,7 @@ export function ContentArea({ activeNoteId, onNotesChanged, forceSaveRef }: Cont
         fontSize={config.font_size}
         fontFamily={config.font_family}
         spellCheck={config.spell_check}
+        onNavigateToNote={onNavigateToNote}
       />
     </div>
   );
