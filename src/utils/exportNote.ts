@@ -144,15 +144,178 @@ function findPageBreaks(canvas: HTMLCanvasElement, pageHeightPx: number): number
   return breaks;
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+interface PdfLinkInfo {
+  href: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface PdfHeadingInfo {
+  text: string;
+  level: number;
+  id: string;
+  y: number;
+}
+
+/**
+ * Prepare the offscreen render element for PDF export:
+ * - Assign id attributes to headings so TOC links can reference them
+ * - Rewrite TOC anchor hrefs from "#" to "#heading-id"
+ * Returns link and heading position data for PDF annotation.
+ */
+function prepareLinksAndHeadings(
+  renderEl: HTMLElement,
+  canvasScale: number,
+): { links: PdfLinkInfo[]; headings: PdfHeadingInfo[] } {
+  const renderRect = renderEl.getBoundingClientRect();
+
+  // Assign IDs to all headings in the content
+  const headingEls = renderEl.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  const headings: PdfHeadingInfo[] = [];
+  const headingIdMap = new Map<string, string>(); // text -> id
+
+  headingEls.forEach((el) => {
+    const text = el.textContent?.trim() ?? "";
+    if (!text) return;
+    const id = slugify(text);
+    el.id = id;
+    headingIdMap.set(text, id);
+
+    const rect = el.getBoundingClientRect();
+    headings.push({
+      text,
+      level: parseInt(el.tagName[1]),
+      id,
+      y: (rect.top - renderRect.top) * canvasScale,
+    });
+  });
+
+  // Rewrite TOC links to point to heading IDs
+  const tocWrapper = renderEl.querySelector('[data-type="toc"]');
+  if (tocWrapper) {
+    tocWrapper.querySelectorAll("a").forEach((a) => {
+      const linkText = a.textContent?.trim() ?? "";
+      const targetId = headingIdMap.get(linkText);
+      if (targetId) {
+        a.href = `#${targetId}`;
+      }
+    });
+  }
+
+  // Collect all link elements with their positions
+  const links: PdfLinkInfo[] = [];
+  renderEl.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href") ?? "";
+    if (!href) return;
+    const rect = a.getBoundingClientRect();
+    links.push({
+      href,
+      x: (rect.left - renderRect.left) * canvasScale,
+      y: (rect.top - renderRect.top) * canvasScale,
+      width: rect.width * canvasScale,
+      height: rect.height * canvasScale,
+    });
+  });
+
+  return { links, headings };
+}
+
+/**
+ * Find which page a y-coordinate (in canvas pixels) falls on,
+ * and return the page index and y offset within that page.
+ */
+function findPageForY(
+  yPx: number,
+  breakPoints: number[],
+): { pageIndex: number; offsetInPagePx: number } {
+  for (let i = 0; i < breakPoints.length - 1; i++) {
+    if (yPx < breakPoints[i + 1]) {
+      return { pageIndex: i, offsetInPagePx: yPx - breakPoints[i] };
+    }
+  }
+  return { pageIndex: breakPoints.length - 2, offsetInPagePx: 0 };
+}
+
+/**
+ * Add clickable link annotations and a bookmark outline to the PDF.
+ */
+function addPdfAnnotations(
+  pdf: jsPDF,
+  links: PdfLinkInfo[],
+  headings: PdfHeadingInfo[],
+  breakPoints: number[],
+  ratio: number,
+): void {
+  // Build a map of heading id -> page position for internal links
+  const headingPositions = new Map<string, { pageIndex: number; yMm: number }>();
+  for (const h of headings) {
+    const { pageIndex, offsetInPagePx } = findPageForY(h.y, breakPoints);
+    headingPositions.set(h.id, { pageIndex, yMm: MARGIN_MM + offsetInPagePx * ratio });
+  }
+
+  // Add link annotations
+  for (const link of links) {
+    const { pageIndex, offsetInPagePx } = findPageForY(link.y, breakPoints);
+    const xMm = MARGIN_MM + link.x * ratio;
+    const yMm = MARGIN_MM + offsetInPagePx * ratio;
+    const wMm = link.width * ratio;
+    const hMm = link.height * ratio;
+
+    pdf.setPage(pageIndex + 1);
+
+    if (link.href.startsWith("#")) {
+      // Internal link (TOC -> heading)
+      const targetId = link.href.slice(1);
+      const target = headingPositions.get(targetId);
+      if (target) {
+        pdf.link(xMm, yMm, wMm, hMm, {
+          pageNumber: target.pageIndex + 1,
+          // Not all PDF viewers support top offset, but we include it
+        });
+      }
+    } else if (link.href.startsWith("http://") || link.href.startsWith("https://")) {
+      // External link
+      pdf.link(xMm, yMm, wMm, hMm, { url: link.href });
+    }
+  }
+
+  // Add PDF outline (bookmarks sidebar) for headings
+  // Skip the title heading (first h1 added by the export itself)
+  const contentHeadings = headings.filter(
+    (_, i) => i > 0 || headings[0]?.level !== 1 || headings.length === 1,
+  );
+  if (contentHeadings.length > 0) {
+    if (typeof pdf.outline?.add === "function") {
+      for (const h of contentHeadings) {
+        const pos = headingPositions.get(h.id);
+        if (!pos) continue;
+        pdf.outline.add(null, h.text, { pageNumber: pos.pageIndex + 1 });
+      }
+    }
+  }
+}
+
 /**
  * Export note as a real PDF file using html2canvas + jsPDF.
  * Renders the styled note content to a canvas, then paginates into A4 pages.
+ * Preserves clickable links (TOC internal links + external URLs) and adds
+ * a PDF bookmark outline for headings.
  */
 export async function exportNoteAsPdf(params: {
   title: string;
   htmlContent: string;
 }): Promise<void> {
   const { title, htmlContent } = params;
+  const canvasScale = 2;
 
   // Create an offscreen container with the styled note content
   const container = document.createElement("div");
@@ -209,8 +372,12 @@ export async function exportNoteAsPdf(params: {
   try {
     const renderEl = container.querySelector("#pdf-render") as HTMLElement;
 
+    // Collect link/heading positions before rendering to canvas
+    // (getBoundingClientRect only works while the element is in the DOM)
+    const { links, headings } = prepareLinksAndHeadings(renderEl, canvasScale);
+
     const canvas = await html2canvas(renderEl, {
-      scale: 2,
+      scale: canvasScale,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
@@ -223,8 +390,6 @@ export async function exportNoteAsPdf(params: {
     const pageContentHeightPx = Math.floor((A4_HEIGHT_MM - 2 * MARGIN_MM) / ratio);
 
     // Find page break points that avoid cutting through content.
-    // Scans for horizontal rows of near-white pixels (gaps between paragraphs,
-    // images, etc.) and snaps the break to those natural boundaries.
     const breakPoints = findPageBreaks(canvas, pageContentHeightPx);
 
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -245,6 +410,9 @@ export async function exportNoteAsPdf(params: {
       const sliceData = sliceCanvas.toDataURL("image/png");
       pdf.addImage(sliceData, "PNG", MARGIN_MM, MARGIN_MM, CONTENT_WIDTH_MM, sliceHeightMm);
     }
+
+    // Add clickable links and bookmarks on top of the rendered pages
+    addPdfAnnotations(pdf, links, headings, breakPoints, ratio);
 
     const pdfBlob = pdf.output("blob");
     triggerDownload(`${safeFilename(title)}.pdf`, pdfBlob);
