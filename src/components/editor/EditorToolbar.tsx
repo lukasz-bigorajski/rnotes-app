@@ -1,4 +1,15 @@
-import { ActionIcon, Group, Menu, Popover, Portal, Text, TextInput } from "@mantine/core";
+import {
+  ActionIcon,
+  Group,
+  Menu,
+  Popover,
+  Portal,
+  SegmentedControl,
+  Stack,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
 import { TextSelection } from "@tiptap/pm/state";
 import {
   IconBold,
@@ -29,6 +40,8 @@ import classes from "./EditorToolbar.module.css";
 import type { TocHeading } from "./TocExtension";
 import { saveImage, getImageUrl } from "../../ipc/assets";
 import { exportNoteAsJson, exportNoteAsPdf } from "../../utils/exportNote";
+import { searchNotes } from "../../ipc/notes";
+import type { SearchResult } from "../../ipc/notes";
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -68,12 +81,59 @@ function extractHeadings(doc: JSONContent): TocHeading[] {
   return headings;
 }
 
+interface NoteLinkSearchProps {
+  query: string;
+  results: SearchResult[];
+  onQueryChange: (q: string) => void;
+  onSelect: (result: SearchResult) => void;
+  onEscape: () => void;
+  autoFocus?: boolean;
+}
+
+function NoteLinkSearch({ query, results, onQueryChange, onSelect, onEscape, autoFocus }: NoteLinkSearchProps) {
+  return (
+    <Stack gap={4}>
+      <TextInput
+        placeholder="Search notes…"
+        value={query}
+        onChange={(e) => onQueryChange(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onEscape();
+        }}
+        autoFocus={autoFocus}
+        size="xs"
+      />
+      {results.length > 0 && (
+        <Stack gap={2} style={{ maxHeight: 200, overflowY: "auto" }}>
+          {results.map((r) => (
+            <UnstyledButton
+              key={r.id}
+              onClick={() => onSelect(r)}
+              className={classes.noteLinkResult}
+            >
+              {r.title || "Untitled"}
+            </UnstyledButton>
+          ))}
+        </Stack>
+      )}
+      {query.trim() && results.length === 0 && (
+        <Text size="xs" c="dimmed" px={8}>
+          No notes found
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
 export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, updatedAt }: EditorToolbarProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpened, setLinkOpened] = useState(false);
   const [floatingLink, setFloatingLink] = useState(false);
   const [floatingPos, setFloatingPos] = useState({ x: 0, y: 0 });
   const floatingInputRef = useRef<HTMLInputElement>(null);
+  const [linkMode, setLinkMode] = useState<"url" | "note">("url");
+  const [noteQuery, setNoteQuery] = useState("");
+  const [noteResults, setNoteResults] = useState<SearchResult[]>([]);
 
   // Auto-focus the floating link input when it opens
   useEffect(() => {
@@ -82,6 +142,43 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
     }
   }, [floatingLink]);
 
+  // Debounced note search
+  useEffect(() => {
+    if (linkMode !== "note" || !noteQuery.trim()) {
+      setNoteResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      searchNotes(noteQuery).then(setNoteResults).catch(() => setNoteResults([]));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [noteQuery, linkMode]);
+
+  const resetLinkDialog = () => {
+    setLinkUrl("");
+    setNoteQuery("");
+    setNoteResults([]);
+    setLinkMode("url");
+  };
+
+  const selectNote = (result: SearchResult) => {
+    const href = `rnotes://note/${result.id}`;
+    const { empty } = editor.state.selection;
+    if (empty) {
+      // No selected text — insert note title as link text
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "text", text: result.title, marks: [{ type: "link", attrs: { href } }] })
+        .run();
+    } else {
+      editor.chain().focus().setLink({ href }).run();
+    }
+    setLinkOpened(false);
+    setFloatingLink(false);
+    resetLinkDialog();
+  };
+
   const setLink = () => {
     if (linkUrl) {
       editor.chain().focus().setLink({ href: linkUrl }).run();
@@ -89,7 +186,7 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
       editor.chain().focus().unsetLink().run();
     }
     setLinkOpened(false);
-    setLinkUrl("");
+    resetLinkDialog();
   };
 
   const setFloatingLinkAction = () => {
@@ -101,7 +198,7 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
         .run();
     }
     setFloatingLink(false);
-    setLinkUrl("");
+    resetLinkDialog();
   };
 
   const openLinkPopover = () => {
@@ -477,21 +574,45 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
             </ActionIcon>
           </Popover.Target>
           <Popover.Dropdown>
-            <TextInput
-              placeholder="https://example.com"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setLink();
-                if (e.key === "Escape") {
-                  setLinkOpened(false);
-                  setLinkUrl("");
-                }
-              }}
-              autoFocus
-              size="xs"
-              style={{ width: 250 }}
-            />
+            <Stack gap={6} style={{ width: 260 }}>
+              <SegmentedControl
+                size="xs"
+                value={linkMode}
+                onChange={(v) => setLinkMode(v as "url" | "note")}
+                data={[
+                  { label: "URL", value: "url" },
+                  { label: "Note", value: "note" },
+                ]}
+              />
+              {linkMode === "url" ? (
+                <TextInput
+                  placeholder="https://example.com"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setLink();
+                    if (e.key === "Escape") {
+                      setLinkOpened(false);
+                      resetLinkDialog();
+                    }
+                  }}
+                  autoFocus
+                  size="xs"
+                />
+              ) : (
+                <NoteLinkSearch
+                  query={noteQuery}
+                  results={noteResults}
+                  onQueryChange={setNoteQuery}
+                  onSelect={selectNote}
+                  onEscape={() => {
+                    setLinkOpened(false);
+                    resetLinkDialog();
+                  }}
+                  autoFocus
+                />
+              )}
+            </Stack>
           </Popover.Dropdown>
         </Popover>
 
@@ -571,21 +692,45 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
             style={{ left: floatingPos.x, top: floatingPos.y }}
             data-testid="floating-link-dialog"
           >
-            <TextInput
-              ref={floatingInputRef}
-              placeholder="https://example.com"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setFloatingLinkAction();
-                if (e.key === "Escape") {
-                  setFloatingLink(false);
-                  setLinkUrl("");
-                }
-              }}
-              size="xs"
-              style={{ width: 250 }}
-            />
+            <Stack gap={6} style={{ width: 260 }}>
+              <SegmentedControl
+                size="xs"
+                value={linkMode}
+                onChange={(v) => setLinkMode(v as "url" | "note")}
+                data={[
+                  { label: "URL", value: "url" },
+                  { label: "Note", value: "note" },
+                ]}
+              />
+              {linkMode === "url" ? (
+                <TextInput
+                  ref={floatingInputRef}
+                  placeholder="https://example.com"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setFloatingLinkAction();
+                    if (e.key === "Escape") {
+                      setFloatingLink(false);
+                      resetLinkDialog();
+                    }
+                  }}
+                  size="xs"
+                />
+              ) : (
+                <NoteLinkSearch
+                  query={noteQuery}
+                  results={noteResults}
+                  onQueryChange={setNoteQuery}
+                  onSelect={selectNote}
+                  onEscape={() => {
+                    setFloatingLink(false);
+                    resetLinkDialog();
+                  }}
+                  autoFocus
+                />
+              )}
+            </Stack>
           </div>
         </Portal>
       )}

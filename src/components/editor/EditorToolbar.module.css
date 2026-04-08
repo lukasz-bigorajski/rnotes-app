@@ -14,6 +14,18 @@
   margin: 0 4px;
 }
 
+.noteLinkResult {
+  padding: 4px 8px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-xs);
+  width: 100%;
+  text-align: left;
+}
+
+.noteLinkResult:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
 .floatingLinkDialog {
   position: fixed;
   z-index: 1000;
