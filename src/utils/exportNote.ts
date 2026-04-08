@@ -1,4 +1,6 @@
 import type { JSONContent } from "@tiptap/react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 const EXPORT_FORMAT_VERSION = "1";
 
@@ -16,8 +18,7 @@ function safeFilename(title: string): string {
 /**
  * Trigger a browser file download.
  */
-function triggerDownload(filename: string, content: string, mimeType: string): void {
-  const blob = new Blob([content], { type: mimeType });
+function triggerDownload(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -56,148 +57,7 @@ export function exportNoteAsJson(params: ExportNoteParams): void {
 
   const json = JSON.stringify(exportData, null, 2);
   const filename = `${safeFilename(title)}.json`;
-  triggerDownload(filename, json, "application/json");
-}
-
-/**
- * Build a self-contained HTML string suitable for PDF printing.
- * Uses CSS print media to produce a clean rendered output.
- */
-function buildPrintHtml(title: string, bodyHtml: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>${escapeHtml(title)}</title>
-  <style>
-    /* ---- Reset & base ---- */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 14pt;
-      line-height: 1.6;
-      color: #1a1a1a;
-      background: #fff;
-      padding: 30mm 25mm;
-      max-width: 210mm;
-      margin: 0 auto;
-    }
-
-    h1.note-title {
-      font-size: 24pt;
-      font-weight: 700;
-      margin-bottom: 6mm;
-      padding-bottom: 3mm;
-      border-bottom: 2px solid #e0e0e0;
-    }
-
-    .note-content { margin-top: 4mm; }
-
-    /* ---- Headings ---- */
-    h1 { font-size: 20pt; font-weight: 700; margin: 6mm 0 3mm; }
-    h2 { font-size: 16pt; font-weight: 700; margin: 5mm 0 2mm; }
-    h3 { font-size: 14pt; font-weight: 700; margin: 4mm 0 2mm; }
-    h4 { font-size: 13pt; font-weight: 600; margin: 4mm 0 2mm; }
-    h5 { font-size: 12pt; font-weight: 600; margin: 3mm 0 2mm; }
-    h6 { font-size: 12pt; font-weight: 600; color: #555; margin: 3mm 0 2mm; }
-
-    /* ---- Paragraphs & inline ---- */
-    p { margin: 2mm 0; }
-    strong { font-weight: 700; }
-    em { font-style: italic; }
-    s { text-decoration: line-through; }
-    code {
-      font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
-      font-size: 11pt;
-      background: #f5f5f5;
-      padding: 1px 4px;
-      border-radius: 3px;
-    }
-    a { color: #0066cc; text-decoration: underline; }
-
-    /* ---- Blockquote ---- */
-    blockquote {
-      margin: 3mm 0;
-      padding: 2mm 5mm;
-      border-left: 4px solid #ccc;
-      color: #555;
-    }
-
-    /* ---- Lists ---- */
-    ul, ol { margin: 2mm 0 2mm 6mm; padding-left: 4mm; }
-    li { margin: 1mm 0; }
-
-    /* ---- Task list ---- */
-    ul[data-type="taskList"] { list-style: none; padding-left: 0; }
-    ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 2mm; }
-    ul[data-type="taskList"] > li > label { flex-shrink: 0; margin-top: 1mm; }
-    ul[data-type="taskList"] > li > div { flex: 1; }
-
-    /* ---- Code block ---- */
-    pre {
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
-      font-size: 10pt;
-      padding: 4mm;
-      border-radius: 4px;
-      overflow-x: auto;
-      margin: 3mm 0;
-      page-break-inside: avoid;
-    }
-    pre code { background: transparent; padding: 0; font-size: inherit; color: inherit; }
-
-    /* ---- Table ---- */
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 3mm 0;
-      page-break-inside: avoid;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 2mm 3mm;
-      text-align: left;
-    }
-    th { background: #f5f5f5; font-weight: 600; }
-
-    /* ---- Images ---- */
-    img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 3mm 0;
-    }
-
-    /* ---- Details/collapsible ---- */
-    details { margin: 2mm 0; }
-    summary { cursor: default; font-weight: 600; }
-
-    /* ---- Print ---- */
-    @page {
-      margin: 15mm 20mm;
-      size: A4;
-    }
-    @media print {
-      body { padding: 0; }
-      a { color: inherit; }
-    }
-  </style>
-</head>
-<body>
-  <h1 class="note-title">${escapeHtml(title)}</h1>
-  <div class="note-content">
-    ${bodyHtml}
-  </div>
-  <script>
-    window.onload = function() {
-      window.print();
-      window.onafterprint = function() { window.close(); };
-    };
-  </script>
-</body>
-</html>`;
+  triggerDownload(filename, new Blob([json], { type: "application/json" }));
 }
 
 function escapeHtml(str: string): string {
@@ -208,33 +68,123 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// A4 dimensions in mm
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+const MARGIN_MM = 15;
+const CONTENT_WIDTH_MM = A4_WIDTH_MM - 2 * MARGIN_MM;
+
 /**
- * Export note as PDF by opening a styled print window.
- * The browser's print dialog allows saving as PDF.
+ * Export note as a real PDF file using html2canvas + jsPDF.
+ * Renders the styled note content to a canvas, then paginates into A4 pages.
  */
-export function exportNoteAsPdf(params: { title: string; htmlContent: string }): void {
+export async function exportNoteAsPdf(params: {
+  title: string;
+  htmlContent: string;
+}): Promise<void> {
   const { title, htmlContent } = params;
-  const printHtml = buildPrintHtml(title, htmlContent);
 
-  const printWindow = window.open("", "_blank", "width=900,height=700,noopener=yes");
-  if (!printWindow) {
-    // Popup blocked — fallback: write to iframe and print from it
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:0;";
-    document.body.appendChild(iframe);
-    const doc = iframe.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write(printHtml);
-      doc.close();
-      setTimeout(() => {
-        iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
+  // Create an offscreen container with the styled note content
+  const container = document.createElement("div");
+  container.style.cssText = `
+    position: fixed; top: -9999px; left: -9999px;
+    width: 680px; background: white; padding: 40px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px; line-height: 1.6; color: #1a1a1a;
+  `;
+  container.innerHTML = `
+    <style>
+      #pdf-render * { box-sizing: border-box; }
+      #pdf-render h1 { font-size: 22px; font-weight: 700; margin: 16px 0 8px; }
+      #pdf-render h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; }
+      #pdf-render h3 { font-size: 16px; font-weight: 700; margin: 12px 0 6px; }
+      #pdf-render h4 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+      #pdf-render h5 { font-size: 14px; font-weight: 600; margin: 10px 0 6px; }
+      #pdf-render h6 { font-size: 14px; font-weight: 600; color: #555; margin: 10px 0 6px; }
+      #pdf-render p { margin: 6px 0; }
+      #pdf-render strong { font-weight: 700; }
+      #pdf-render em { font-style: italic; }
+      #pdf-render s { text-decoration: line-through; }
+      #pdf-render code {
+        font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+        font-size: 12px; background: #f5f5f5; padding: 1px 4px; border-radius: 3px;
+      }
+      #pdf-render a { color: #0066cc; text-decoration: underline; }
+      #pdf-render blockquote {
+        margin: 8px 0; padding: 6px 16px; border-left: 4px solid #ccc; color: #555;
+      }
+      #pdf-render ul, #pdf-render ol { margin: 6px 0 6px 20px; padding-left: 12px; }
+      #pdf-render li { margin: 3px 0; }
+      #pdf-render ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+      #pdf-render ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 6px; }
+      #pdf-render pre {
+        background: #f5f5f5; color: #1a1a1a;
+        font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+        font-size: 11px; padding: 12px; border-radius: 4px;
+        overflow-x: auto; margin: 8px 0;
+      }
+      #pdf-render pre code { background: transparent; padding: 0; font-size: inherit; color: inherit; }
+      #pdf-render table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+      #pdf-render th, #pdf-render td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+      #pdf-render th { background: #f5f5f5; font-weight: 600; }
+      #pdf-render img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
+    </style>
+    <div id="pdf-render">
+      <h1 style="font-size:24px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e0e0e0;">${escapeHtml(title)}</h1>
+      <div>${htmlContent}</div>
+    </div>
+  `;
+  document.body.appendChild(container);
+
+  try {
+    const renderEl = container.querySelector("#pdf-render") as HTMLElement;
+
+    const canvas = await html2canvas(renderEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const imgWidthPx = canvas.width;
+    const imgHeightPx = canvas.height;
+
+    // Scale image to fit content width, then paginate
+    const ratio = CONTENT_WIDTH_MM / imgWidthPx;
+    const imgHeightMm = imgHeightPx * ratio;
+    const pageContentHeight = A4_HEIGHT_MM - 2 * MARGIN_MM;
+
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    let yOffset = 0;
+    let pageNum = 0;
+
+    while (yOffset < imgHeightMm) {
+      if (pageNum > 0) pdf.addPage();
+
+      // Calculate which portion of the source image to draw
+      const sliceHeightMm = Math.min(pageContentHeight, imgHeightMm - yOffset);
+      const srcY = (yOffset / imgHeightMm) * imgHeightPx;
+      const srcH = (sliceHeightMm / imgHeightMm) * imgHeightPx;
+
+      // Create a canvas slice for this page
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = imgWidthPx;
+      sliceCanvas.height = Math.ceil(srcH);
+      const ctx = sliceCanvas.getContext("2d")!;
+      ctx.drawImage(canvas, 0, srcY, imgWidthPx, srcH, 0, 0, imgWidthPx, srcH);
+
+      const sliceData = sliceCanvas.toDataURL("image/png");
+      pdf.addImage(sliceData, "PNG", MARGIN_MM, MARGIN_MM, CONTENT_WIDTH_MM, sliceHeightMm);
+
+      yOffset += pageContentHeight;
+      pageNum++;
     }
-    return;
-  }
 
-  printWindow.document.write(printHtml);
-  printWindow.document.close();
+    const pdfBlob = pdf.output("blob");
+    triggerDownload(`${safeFilename(title)}.pdf`, pdfBlob);
+  } finally {
+    document.body.removeChild(container);
+  }
 }

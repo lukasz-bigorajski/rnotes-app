@@ -172,8 +172,21 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
     });
   }, [editor, noteId, title, createdAt, updatedAt]);
 
-  const handleExportPdf = useCallback(() => {
-    exportNoteAsPdf({ title, htmlContent: editor.getHTML() });
+  const handleExportPdf = useCallback(async () => {
+    try {
+      // Get HTML from the editor's rendered DOM instead of editor.getHTML()
+      // which throws "Content hole not allowed in a leaf node spec" due to
+      // the custom Image NodeView conflicting with ProseMirror's serializer.
+      const clone = editor.view.dom.cloneNode(true) as HTMLElement;
+      // Remove interactive NodeView elements (resize handles, alignment toolbar)
+      clone.querySelectorAll("[class*='handle'], [class*='alignToolbar'], [class*='alignBtn']").forEach((el) => el.remove());
+      // Remove contenteditable attributes
+      clone.removeAttribute("contenteditable");
+      clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
+      await exportNoteAsPdf({ title, htmlContent: clone.innerHTML });
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    }
   }, [editor, title]);
 
   const generateToc = () => {

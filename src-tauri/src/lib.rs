@@ -22,6 +22,7 @@ pub fn run() {
             let conn = db::open_and_initialize(&db_path)?;
 
             let user_config = services::config_service::load_user_config(&data_dir);
+            let first_launch_marker = data_dir.join(".window-launched");
 
             app.manage(DbState(Mutex::new(conn)));
             app.manage(ConfigState(Mutex::new(AppConfig {
@@ -29,6 +30,17 @@ pub fn run() {
                 assets_dir,
             })));
             app.manage(UserConfigState(Mutex::new(user_config)));
+
+            // On first launch (no saved window state), maximize the window.
+            // On subsequent launches the window-state plugin has already restored
+            // the user's last size/position before setup() runs.
+            if let Some(win) = app.get_webview_window("main") {
+                if !first_launch_marker.exists() {
+                    let _ = std::fs::write(&first_launch_marker, "");
+                    let _ = win.maximize();
+                }
+                let _ = win.show();
+            }
 
             // Spawn background task to check for due notifications every 60 seconds
             let app_handle = app.handle().clone();

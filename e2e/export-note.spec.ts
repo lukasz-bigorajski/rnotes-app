@@ -66,28 +66,14 @@ test("exported JSON contains note data", async ({ page }) => {
   expect(json.note.updatedAt).toBeTruthy();
 });
 
-test("export as PDF opens a print window", async ({ page }) => {
-  const newPagePromise = page.context().waitForEvent("page", { timeout: 5000 });
+test("export as PDF triggers a download", async ({ page }) => {
+  const downloadPromise = page.waitForEvent("download", { timeout: 10000 });
 
   await page.getByTestId("export-menu-button").click();
   await page.getByTestId("export-pdf-item").click();
 
-  // A new popup window should open for printing
-  const newPage = await newPagePromise;
-
-  // The page should open (event fired) — that's the key assertion.
-  // We check the URL is blank (new window) and that it has a document.
-  expect(newPage).toBeTruthy();
-
-  // Try to read the title from the window's document title
-  // Use a short timeout since print() may close the window quickly in headless mode
-  try {
-    await newPage.waitForLoadState("domcontentloaded", { timeout: 3000 });
-    const title = await newPage.title();
-    // The print window should have been titled with the note name
-    expect(title).toContain("Test Note");
-  } catch {
-    // If the window closed before we could inspect it, the test still passes
-    // because we verified the popup was opened above.
-  }
+  const download = await downloadPromise;
+  const suggestedFilename = download.suggestedFilename();
+  expect(suggestedFilename).toMatch(/\.pdf$/);
+  expect(suggestedFilename).toContain("Test Note");
 });
