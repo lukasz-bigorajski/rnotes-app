@@ -75,6 +75,76 @@ const MARGIN_MM = 15;
 const CONTENT_WIDTH_MM = A4_WIDTH_MM - 2 * MARGIN_MM;
 
 /**
+ * Check if a horizontal row of pixels is "empty" (near-white background).
+ * Samples pixels across the row to avoid scanning every single pixel.
+ */
+function isRowEmpty(imageData: ImageData, y: number, width: number): boolean {
+  const stride = imageData.width * 4;
+  const step = Math.max(1, Math.floor(width / 80)); // sample ~80 points across
+  for (let x = 0; x < width; x += step) {
+    const idx = y * stride + x * 4;
+    const r = imageData.data[idx];
+    const g = imageData.data[idx + 1];
+    const b = imageData.data[idx + 2];
+    // Treat anything darker than near-white as content
+    if (r < 245 || g < 245 || b < 245) return false;
+  }
+  return true;
+}
+
+/**
+ * Find natural page break positions by scanning for whitespace rows.
+ * Searches upward from the ideal break point (page height) to find a gap
+ * between content blocks. Falls back to the ideal break if no gap is found
+ * within the search range (25% of page height).
+ */
+function findPageBreaks(canvas: HTMLCanvasElement, pageHeightPx: number): number[] {
+  const ctx = canvas.getContext("2d")!;
+  const imgHeight = canvas.height;
+  const imgWidth = canvas.width;
+  const imageData = ctx.getImageData(0, 0, imgWidth, imgHeight);
+
+  // How far above the ideal break to search for a whitespace gap
+  const searchRange = Math.floor(pageHeightPx * 0.25);
+  // Require a few consecutive empty rows to count as a real gap
+  const minGapRows = 3;
+
+  const breaks: number[] = [0];
+  let pos = 0;
+
+  while (pos < imgHeight) {
+    const idealBreak = pos + pageHeightPx;
+    if (idealBreak >= imgHeight) {
+      breaks.push(imgHeight);
+      break;
+    }
+
+    // Search upward from the ideal break point for a whitespace gap
+    let bestBreak = idealBreak;
+    for (let y = idealBreak; y > idealBreak - searchRange && y > pos; y--) {
+      let gapRows = 0;
+      for (let row = y; row >= pos && gapRows < minGapRows; row--) {
+        if (isRowEmpty(imageData, row, imgWidth)) {
+          gapRows++;
+        } else {
+          break;
+        }
+      }
+      if (gapRows >= minGapRows) {
+        // Break at the top of the gap so whitespace stays at bottom of prev page
+        bestBreak = y - gapRows + 1;
+        break;
+      }
+    }
+
+    breaks.push(bestBreak);
+    pos = bestBreak;
+  }
+
+  return breaks;
+}
+
+/**
  * Export note as a real PDF file using html2canvas + jsPDF.
  * Renders the styled note content to a canvas, then paginates into A4 pages.
  */
@@ -146,40 +216,34 @@ export async function exportNoteAsPdf(params: {
       logging: false,
     });
 
-    const imgData = canvas.toDataURL("image/png");
     const imgWidthPx = canvas.width;
-    const imgHeightPx = canvas.height;
 
     // Scale image to fit content width, then paginate
     const ratio = CONTENT_WIDTH_MM / imgWidthPx;
-    const imgHeightMm = imgHeightPx * ratio;
-    const pageContentHeight = A4_HEIGHT_MM - 2 * MARGIN_MM;
+    const pageContentHeightPx = Math.floor((A4_HEIGHT_MM - 2 * MARGIN_MM) / ratio);
+
+    // Find page break points that avoid cutting through content.
+    // Scans for horizontal rows of near-white pixels (gaps between paragraphs,
+    // images, etc.) and snaps the break to those natural boundaries.
+    const breakPoints = findPageBreaks(canvas, pageContentHeightPx);
 
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    let yOffset = 0;
-    let pageNum = 0;
+    for (let i = 0; i < breakPoints.length - 1; i++) {
+      if (i > 0) pdf.addPage();
 
-    while (yOffset < imgHeightMm) {
-      if (pageNum > 0) pdf.addPage();
+      const srcY = breakPoints[i];
+      const srcH = breakPoints[i + 1] - srcY;
+      const sliceHeightMm = srcH * ratio;
 
-      // Calculate which portion of the source image to draw
-      const sliceHeightMm = Math.min(pageContentHeight, imgHeightMm - yOffset);
-      const srcY = (yOffset / imgHeightMm) * imgHeightPx;
-      const srcH = (sliceHeightMm / imgHeightMm) * imgHeightPx;
-
-      // Create a canvas slice for this page
       const sliceCanvas = document.createElement("canvas");
       sliceCanvas.width = imgWidthPx;
-      sliceCanvas.height = Math.ceil(srcH);
+      sliceCanvas.height = srcH;
       const ctx = sliceCanvas.getContext("2d")!;
       ctx.drawImage(canvas, 0, srcY, imgWidthPx, srcH, 0, 0, imgWidthPx, srcH);
 
       const sliceData = sliceCanvas.toDataURL("image/png");
       pdf.addImage(sliceData, "PNG", MARGIN_MM, MARGIN_MM, CONTENT_WIDTH_MM, sliceHeightMm);
-
-      yOffset += pageContentHeight;
-      pageNum++;
     }
 
     const pdfBlob = pdf.output("blob");
