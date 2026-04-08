@@ -12,19 +12,25 @@ pub struct SearchResult {
 }
 
 /// Sanitize an FTS5 query string to avoid syntax errors from special chars.
-/// For queries with 4+ chars, wraps in double quotes for phrase search.
-/// For queries under 4 chars, uses prefix search syntax ("term"*) to allow partial word matching.
+/// Splits the query into words, quotes each one, and adds prefix search (*) to the last word.
+/// This allows partial matching on the last typed word (e.g. "some n" matches "some note").
 fn sanitize_fts_query(query: &str) -> String {
-    // Escape any embedded double-quotes by doubling them
-    let escaped = query.replace('"', "\"\"");
-    
-    // Use prefix search for short queries (< 4 chars) to enable 3-char searches
-    if escaped.len() < 4 {
-        format!("\"{}\"*", escaped)
-    } else {
-        // Phrase search for longer queries
-        format!("\"{}\"", escaped)
+    let words: Vec<&str> = query.split_whitespace().collect();
+    if words.is_empty() {
+        return String::new();
     }
+
+    let mut parts: Vec<String> = Vec::new();
+    for (i, word) in words.iter().enumerate() {
+        let escaped = word.replace('"', "\"\"");
+        if i == words.len() - 1 {
+            parts.push(format!("\"{}\"*", escaped));
+        } else {
+            parts.push(format!("\"{}\"", escaped));
+        }
+    }
+
+    parts.join(" ")
 }
 
 pub fn search(conn: &Connection, query: &str) -> AppResult<Vec<SearchResult>> {
@@ -263,5 +269,25 @@ mod tests {
         let results = search(&conn, "lea").unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Rust Programming");
+    }
+
+    #[test]
+    fn test_search_partial_second_word() {
+        let conn = test_connection();
+        insert_note(&conn, "note-1", "some note");
+        upsert(&conn, "note-1", "some note", "").unwrap();
+
+        // Full title works
+        let results = search(&conn, "some note").unwrap();
+        assert_eq!(results.len(), 1);
+
+        // Partial second word should also work
+        let results = search(&conn, "some n").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "some note");
+
+        // Partial first word works
+        let results = search(&conn, "som").unwrap();
+        assert_eq!(results.len(), 1);
     }
 }
