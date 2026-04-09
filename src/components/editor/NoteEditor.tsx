@@ -14,6 +14,8 @@ import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
 import { HeadingShortcutsExtension } from "./HeadingShortcutsExtension";
+import { EmojiExtension } from "./EmojiExtension";
+import "tippy.js/dist/tippy.css";
 import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { TableMenu } from "./TableMenu";
@@ -236,6 +238,7 @@ export function NoteEditor({
         },
       }),
       HeadingShortcutsExtension,
+      EmojiExtension,
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,

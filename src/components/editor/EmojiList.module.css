@@ -1,0 +1,43 @@
+.list {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  box-shadow: var(--mantine-shadow-md);
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 280px;
+  z-index: 1000;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-text);
+  transition: background-color 0.1s;
+}
+
+.item:hover,
+.item.selected {
+  background: var(--mantine-color-default-hover);
+}
+
+.emoji {
+  font-size: 1.2em;
+  flex-shrink: 0;
+}
+
+.shortcode {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

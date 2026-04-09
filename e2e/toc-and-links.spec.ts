@@ -127,8 +127,8 @@ test("link button: floating dialog escape closes it", async ({ page }) => {
   const floatingDialog = page.locator('[data-testid="floating-link-dialog"]');
   await expect(floatingDialog).toBeVisible();
 
-  // Click the input to ensure it has focus before pressing Escape
-  await floatingDialog.locator("input").click();
+  // Click the URL text input to ensure it has focus before pressing Escape
+  await floatingDialog.locator('input[type="text"], input:not([type="radio"])').first().click();
   await page.keyboard.press("Escape");
   await expect(floatingDialog).not.toBeVisible();
 });
@@ -143,7 +143,7 @@ test("link button: floating dialog enter inserts link text", async ({ page }) =>
   const floatingDialog = page.locator('[data-testid="floating-link-dialog"]');
   await expect(floatingDialog).toBeVisible();
 
-  const floatingInput = floatingDialog.locator('input');
+  const floatingInput = floatingDialog.locator('input[type="text"], input:not([type="radio"])').first();
   await floatingInput.fill("https://inserted.com");
   await page.keyboard.press("Enter");
 
