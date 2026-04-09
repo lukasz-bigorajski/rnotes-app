@@ -19,6 +19,13 @@ pub struct BackupInfo {
     pub timestamp: String,
 }
 
+/// Returns a timestamp string for naming pre-restore safety copies.
+///
+/// Uses the same `YYYYMMDD_HHMMSS` format as regular backups.
+pub fn pre_restore_timestamp() -> String {
+    current_timestamp()
+}
+
 /// Returns the backups directory (`<data_dir>/backups/`), creating it if needed.
 pub fn backups_dir(data_dir: &Path) -> AppResult<PathBuf> {
     let dir = data_dir.join("backups");

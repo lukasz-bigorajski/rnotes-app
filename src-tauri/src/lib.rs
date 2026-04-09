@@ -4,7 +4,7 @@ mod error;
 mod services;
 mod state;
 
-use state::{AppConfig, ConfigState, DbState, UserConfigState};
+use state::{AppConfig, AppHealthState, ConfigState, DbHealth, DbState, UserConfigState};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -20,12 +20,45 @@ pub fn run() {
             std::fs::create_dir_all(&assets_dir)?;
 
             let db_path = data_dir.join("rnotes.db");
-            let conn = db::open_and_initialize(&db_path)?;
+
+            // Determine DB health before opening.
+            let db_missing = !db_path.exists();
+            let (conn, db_health) = if db_missing {
+                // No DB file — open/create fresh (migrations will initialise it).
+                let c = db::open_and_initialize(&db_path)?;
+                (c, DbHealth::Missing)
+            } else {
+                // File exists — open it and run an integrity check.
+                match db::open_and_initialize(&db_path) {
+                    Ok(c) => {
+                        let integrity_ok: bool = c
+                            .query_row("PRAGMA integrity_check", [], |row| {
+                                let result: String = row.get(0)?;
+                                Ok(result == "ok")
+                            })
+                            .unwrap_or(false);
+                        if integrity_ok {
+                            (c, DbHealth::Ok)
+                        } else {
+                            (c, DbHealth::Corrupted)
+                        }
+                    }
+                    Err(_) => {
+                        // Cannot open — create an empty in-memory placeholder so
+                        // the app still starts; the frontend will prompt to restore.
+                        let c = rusqlite::Connection::open_in_memory()
+                            .expect("in-memory DB must always open");
+                        db::schema::run_migrations(&c).expect("in-memory migrations must succeed");
+                        (c, DbHealth::Corrupted)
+                    }
+                }
+            };
 
             let user_config = services::config_service::load_user_config(&data_dir);
             let first_launch_marker = data_dir.join(".window-launched");
 
             app.manage(DbState(Mutex::new(conn)));
+            app.manage(AppHealthState(Mutex::new(db_health)));
             app.manage(ConfigState(Mutex::new(AppConfig {
                 data_dir,
                 assets_dir,
@@ -113,6 +146,8 @@ pub fn run() {
             commands::task_commands::update_task_checked,
             commands::backup::create_backup,
             commands::backup::list_backups,
+            commands::backup::get_app_health,
+            commands::backup::restore_from_backup,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

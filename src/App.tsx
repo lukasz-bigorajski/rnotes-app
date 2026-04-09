@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AppShell } from "@mantine/core";
 import { useDisclosure, useHotkeys } from "@mantine/hooks";
 import { Sidebar } from "./components/Sidebar";
@@ -8,13 +8,17 @@ import { Settings } from "./components/Settings";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { GlobalFindReplace } from "./components/GlobalFindReplace";
 import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
+import { RecoveryDialog } from "./components/RecoveryDialog";
 import { UserConfigProvider } from "./context/UserConfigContext";
+import { type AppHealth, getAppHealth } from "./ipc/backup";
 
 type ActiveView = "editor" | "tasks" | "settings";
 
 function AppInner() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [opened] = useDisclosure(true);
+  const [appHealth, setAppHealth] = useState<AppHealth>("ok");
+  const [recoveryKey, setRecoveryKey] = useState(0);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>("editor");
   const sidebarRefreshRef = useRef<(() => void) | null>(null);
@@ -24,6 +28,20 @@ function AppInner() {
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
   const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
+
+  useEffect(() => {
+    getAppHealth()
+      .then((health) => setAppHealth(health))
+      .catch(() => {
+        // If we can't get health, assume ok (app loaded normally).
+      });
+  }, []);
+
+  const handleRecovered = () => {
+    setAppHealth("recovered");
+    // Bump key to force sidebar/content to re-fetch notes from the restored DB.
+    setRecoveryKey((k) => k + 1);
+  };
 
   useHotkeys([
     ["mod+K", () => setGlobalSearchOpened(true)],
@@ -71,6 +89,7 @@ function AppInner() {
 
   return (
     <>
+      <RecoveryDialog health={appHealth} onRecovered={handleRecovered} />
       <GlobalSearch
         opened={globalSearchOpened}
         onClose={() => setGlobalSearchOpened(false)}
@@ -95,6 +114,7 @@ function AppInner() {
         {sidebarVisible && (
           <AppShell.Navbar p="sm">
             <Sidebar
+              key={recoveryKey}
               activeNoteId={activeNoteId}
               setActiveNoteId={handleSetActiveNoteId}
               refreshRef={sidebarRefreshRef}

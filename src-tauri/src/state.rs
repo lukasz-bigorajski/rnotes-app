@@ -34,3 +34,29 @@ impl Default for UserConfig {
 }
 
 pub struct UserConfigState(pub Mutex<UserConfig>);
+
+/// Represents the health status of the database at startup.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DbHealth {
+    /// Database loaded and passed integrity check.
+    Ok,
+    /// Database file was not found (fresh start or deleted).
+    Missing,
+    /// Database file exists but failed integrity check.
+    Corrupted,
+    /// Database was restored from backup during this session.
+    Recovered,
+}
+
+impl DbHealth {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DbHealth::Ok => "ok",
+            DbHealth::Missing => "missing",
+            DbHealth::Corrupted => "corrupted",
+            DbHealth::Recovered => "recovered",
+        }
+    }
+}
+
+pub struct AppHealthState(pub Mutex<DbHealth>);
