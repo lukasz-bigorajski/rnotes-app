@@ -15,10 +15,7 @@ fn lock_db<'a>(
 }
 
 #[tauri::command]
-pub fn get_note_tasks(
-    db: State<'_, DbState>,
-    note_id: String,
-) -> Result<Vec<NoteTask>, AppError> {
+pub fn get_note_tasks(db: State<'_, DbState>, note_id: String) -> Result<Vec<NoteTask>, AppError> {
     let conn = lock_db(&db)?;
     task_service::get_tasks_for_note(&conn, &note_id)
 }

@@ -2,8 +2,8 @@ use rusqlite::Connection;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::db::{fts, notes};
 use crate::db::notes::{Note, NoteRow};
+use crate::db::{fts, notes};
 use crate::error::{AppError, AppResult};
 use crate::services::task_service;
 
@@ -30,7 +30,11 @@ pub fn create_note(conn: &Connection, req: CreateNoteRequest) -> AppResult<Note>
         id,
         parent_id: req.parent_id,
         title: req.title.clone(),
-        content: if req.is_folder { None } else { Some("{}".to_string()) },
+        content: if req.is_folder {
+            None
+        } else {
+            Some("{}".to_string())
+        },
         sort_order,
         is_folder: req.is_folder,
         deleted_at: None,
@@ -173,13 +177,11 @@ pub fn restore_note(conn: &Connection, id: &str) -> AppResult<()> {
     // Determine the new parent_id:
     // If the original parent exists and is not deleted, keep it; else restore to root (NULL)
     let corrected_parent_id = match note.parent_id {
-        Some(parent_id) => {
-            match notes::get_by_id(&tx, &parent_id) {
-                Ok(_) => Some(parent_id),
-                Err(AppError::NotFound(_)) => None,
-                Err(e) => return Err(e),
-            }
-        }
+        Some(parent_id) => match notes::get_by_id(&tx, &parent_id) {
+            Ok(_) => Some(parent_id),
+            Err(AppError::NotFound(_)) => None,
+            Err(e) => return Err(e),
+        },
         None => None,
     };
 
@@ -207,32 +209,31 @@ pub fn global_replace(
 ) -> AppResult<()> {
     // Get the note to check it exists and is not deleted
     let note = notes::get_by_id(conn, note_id)?;
-    
+
     // If it's a folder, skip
     if note.is_folder {
         return Ok(());
     }
 
     let content = note.content.unwrap_or_default();
-    
+
     // Perform simple string replacement in the content
     // This works for TipTap JSON because text content appears as plain strings in text node objects
     let new_content = content.replace(find_text, replace_text);
-    
+
     // If the content changed, update the note
     if new_content != content {
         let now = now_ms();
         let tx = conn.unchecked_transaction()?;
-        
+
         // Get the plaintext from FTS to extract the new plaintext
-        let old_plain_text = fts::get_body(&tx, note_id)?
-            .unwrap_or_default();
+        let old_plain_text = fts::get_body(&tx, note_id)?.unwrap_or_default();
         let new_plain_text = old_plain_text.replace(find_text, replace_text);
-        
+
         // Update the note with new content and plaintext
         notes::update(&tx, note_id, &note.title, &new_content, now)?;
         fts::upsert(&tx, note_id, &note.title, &new_plain_text)?;
-        
+
         tx.commit()?;
     }
 
@@ -324,17 +325,25 @@ mod tests {
     #[test]
     fn test_move_note_changes_parent() {
         let conn = test_connection();
-        let folder = create_note(&conn, CreateNoteRequest {
-            parent_id: None,
-            title: "Folder".to_string(),
-            is_folder: true,
-        }).unwrap();
+        let folder = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Folder".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
 
-        let note = create_note(&conn, CreateNoteRequest {
-            parent_id: None,
-            title: "Note".to_string(),
-            is_folder: false,
-        }).unwrap();
+        let note = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
 
         // Move note into folder
         move_note(&conn, &note.id, Some(&folder.id), 1.5).unwrap();
@@ -347,17 +356,25 @@ mod tests {
     #[test]
     fn test_move_note_prevents_circular_reference() {
         let conn = test_connection();
-        let parent_folder = create_note(&conn, CreateNoteRequest {
-            parent_id: None,
-            title: "Parent".to_string(),
-            is_folder: true,
-        }).unwrap();
+        let parent_folder = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Parent".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
 
-        let child_folder = create_note(&conn, CreateNoteRequest {
-            parent_id: Some(parent_folder.id.clone()),
-            title: "Child".to_string(),
-            is_folder: true,
-        }).unwrap();
+        let child_folder = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: Some(parent_folder.id.clone()),
+                title: "Child".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
 
         // Try to move parent into child — should fail
         let result = move_note(&conn, &parent_folder.id, Some(&child_folder.id), 1.0);
@@ -401,17 +418,25 @@ mod tests {
     #[test]
     fn test_restore_note_preserves_parent() {
         let conn = test_connection();
-        let folder = create_note(&conn, CreateNoteRequest {
-            parent_id: None,
-            title: "Folder".to_string(),
-            is_folder: true,
-        }).unwrap();
+        let folder = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Folder".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
 
-        let note = create_note(&conn, CreateNoteRequest {
-            parent_id: Some(folder.id.clone()),
-            title: "Child Note".to_string(),
-            is_folder: false,
-        }).unwrap();
+        let note = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: Some(folder.id.clone()),
+                title: "Child Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
 
         // Delete the note
         delete_note(&conn, &note.id).unwrap();
@@ -428,17 +453,25 @@ mod tests {
     #[test]
     fn test_restore_note_orphaned_goes_to_root() {
         let conn = test_connection();
-        let folder = create_note(&conn, CreateNoteRequest {
-            parent_id: None,
-            title: "Folder".to_string(),
-            is_folder: true,
-        }).unwrap();
+        let folder = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Folder".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
 
-        let note = create_note(&conn, CreateNoteRequest {
-            parent_id: Some(folder.id.clone()),
-            title: "Child Note".to_string(),
-            is_folder: false,
-        }).unwrap();
+        let note = create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: Some(folder.id.clone()),
+                title: "Child Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
 
         // Delete both folder and note
         delete_note_tree(&conn, &folder.id).unwrap();

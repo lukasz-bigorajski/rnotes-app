@@ -20,8 +20,7 @@ pub fn load_user_config(data_dir: &Path) -> UserConfig {
 
 pub fn save_user_config(data_dir: &Path, config: &UserConfig) -> AppResult<()> {
     let path = data_dir.join("config.json");
-    let json = serde_json::to_string_pretty(config)
-        .map_err(|e| AppError::Config(e.to_string()))?;
+    let json = serde_json::to_string_pretty(config).map_err(|e| AppError::Config(e.to_string()))?;
     std::fs::write(&path, json)?;
     Ok(())
 }

@@ -1,14 +1,19 @@
 use tauri::State;
 
+use crate::db::fts;
 use crate::db::fts::SearchResult;
 use crate::db::notes::{Note, NoteRow};
-use crate::db::fts;
 use crate::error::AppError;
 use crate::services::note_service::{self, CreateNoteRequest};
 use crate::state::DbState;
 
-fn lock_db<'a>(state: &'a State<'a, DbState>) -> Result<std::sync::MutexGuard<'a, rusqlite::Connection>, AppError> {
-    state.0.lock().map_err(|_| AppError::Config("database lock poisoned".into()))
+fn lock_db<'a>(
+    state: &'a State<'a, DbState>,
+) -> Result<std::sync::MutexGuard<'a, rusqlite::Connection>, AppError> {
+    state
+        .0
+        .lock()
+        .map_err(|_| AppError::Config("database lock poisoned".into()))
 }
 
 #[tauri::command]
@@ -19,7 +24,14 @@ pub fn create_note(
     is_folder: bool,
 ) -> Result<Note, AppError> {
     let conn = lock_db(&state)?;
-    note_service::create_note(&conn, CreateNoteRequest { parent_id, title, is_folder })
+    note_service::create_note(
+        &conn,
+        CreateNoteRequest {
+            parent_id,
+            title,
+            is_folder,
+        },
+    )
 }
 
 #[tauri::command]
@@ -85,7 +97,10 @@ pub fn restore_note(state: State<'_, DbState>, id: String) -> Result<(), AppErro
 }
 
 #[tauri::command]
-pub fn search_notes(state: State<'_, DbState>, query: String) -> Result<Vec<SearchResult>, AppError> {
+pub fn search_notes(
+    state: State<'_, DbState>,
+    query: String,
+) -> Result<Vec<SearchResult>, AppError> {
     let conn = lock_db(&state)?;
     fts::search(&conn, &query)
 }

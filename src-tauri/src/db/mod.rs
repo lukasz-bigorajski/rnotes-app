@@ -47,7 +47,11 @@ mod tests {
         // we want to verify: that our wrapper does not panic or propagate errors.)
         let conn = test_helpers::test_connection();
         let result = wal_checkpoint(&conn);
-        assert!(result.is_ok(), "wal_checkpoint should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "wal_checkpoint should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -56,9 +60,7 @@ mod tests {
 
         // Query sqlite_master for all indexes we rely on for query performance.
         let mut stmt = conn
-            .prepare(
-                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?1",
-            )
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?1")
             .unwrap();
 
         let expected_indexes = [
@@ -71,10 +73,12 @@ mod tests {
         ];
 
         for index_name in expected_indexes {
-            let found: bool = stmt
-                .query_row([index_name], |_| Ok(true))
-                .unwrap_or(false);
-            assert!(found, "Expected index '{}' to exist after migration", index_name);
+            let found: bool = stmt.query_row([index_name], |_| Ok(true)).unwrap_or(false);
+            assert!(
+                found,
+                "Expected index '{}' to exist after migration",
+                index_name
+            );
         }
     }
 }

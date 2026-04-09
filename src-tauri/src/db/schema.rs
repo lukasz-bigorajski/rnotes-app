@@ -54,8 +54,7 @@ ALTER TABLE note_tasks ADD COLUMN notified_at INTEGER;
 ";
 
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
-    let version: i64 = conn
-        .pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
 
     if version < 1 {
         conn.execute_batch(SCHEMA_V1)?;

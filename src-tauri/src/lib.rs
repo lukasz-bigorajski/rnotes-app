@@ -59,6 +59,36 @@ pub fn run() {
                 }
             });
 
+            // Spawn periodic backup task: first run after 1 minute, then every 30 minutes.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // Initial delay before first backup.
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(30 * 60));
+                loop {
+                    interval.tick().await;
+                    let db_state = app_handle.state::<DbState>();
+                    let config_state = app_handle.state::<state::ConfigState>();
+                    // Try to acquire both locks; skip this cycle if either is busy.
+                    let conn_guard = match db_state.0.lock() {
+                        Ok(g) => g,
+                        Err(_) => continue,
+                    };
+                    let config_guard = match config_state.0.lock() {
+                        Ok(g) => g,
+                        Err(_) => continue,
+                    };
+                    let db_path = config_guard.data_dir.join("rnotes.db");
+                    let data_dir = config_guard.data_dir.clone();
+                    drop(config_guard);
+                    if let Err(e) =
+                        services::backup_service::create_backup(&conn_guard, &db_path, &data_dir)
+                    {
+                        eprintln!("periodic backup failed: {e}");
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -81,6 +111,8 @@ pub fn run() {
             commands::task_commands::get_note_tasks,
             commands::task_commands::get_all_tasks,
             commands::task_commands::update_task_checked,
+            commands::backup::create_backup,
+            commands::backup::list_backups,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

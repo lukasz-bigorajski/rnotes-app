@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
@@ -160,9 +160,8 @@ pub fn soft_delete_tree(conn: &Connection, id: &str, now: i64) -> AppResult<Vec<
 
     while let Some(current_id) = to_delete.pop() {
         // Find all children of the current note
-        let mut stmt = conn.prepare(
-            "SELECT id FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL")?;
         let children: Vec<String> = stmt
             .query_map(params![&current_id], |row| row.get(0))?
             .collect::<Result<Vec<_>, _>>()?;
@@ -220,10 +219,17 @@ pub struct SiblingInfo {
     pub sort_order: f64,
 }
 
-pub fn get_siblings_sorted(conn: &Connection, parent_id: Option<&str>) -> AppResult<Vec<SiblingInfo>> {
+pub fn get_siblings_sorted(
+    conn: &Connection,
+    parent_id: Option<&str>,
+) -> AppResult<Vec<SiblingInfo>> {
     let sql = match parent_id {
-        Some(_) => "SELECT id, sort_order FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL ORDER BY sort_order",
-        None => "SELECT id, sort_order FROM notes WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order",
+        Some(_) => {
+            "SELECT id, sort_order FROM notes WHERE parent_id = ?1 AND deleted_at IS NULL ORDER BY sort_order"
+        }
+        None => {
+            "SELECT id, sort_order FROM notes WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order"
+        }
     };
 
     let mut stmt = conn.prepare(sql)?;
@@ -354,17 +360,21 @@ mod tests {
         assert_eq!(max_sort_order(&conn, None).unwrap(), 5.0);
 
         // Insert a note under a parent
-        insert(&conn, &Note {
-            id: "child-1".to_string(),
-            parent_id: Some("n1".to_string()),
-            title: "Child".to_string(),
-            content: Some("{}".to_string()),
-            sort_order: 10.0,
-            is_folder: false,
-            deleted_at: None,
-            created_at: 1000,
-            updated_at: 1000,
-        }).unwrap();
+        insert(
+            &conn,
+            &Note {
+                id: "child-1".to_string(),
+                parent_id: Some("n1".to_string()),
+                title: "Child".to_string(),
+                content: Some("{}".to_string()),
+                sort_order: 10.0,
+                is_folder: false,
+                deleted_at: None,
+                created_at: 1000,
+                updated_at: 1000,
+            },
+        )
+        .unwrap();
 
         assert_eq!(max_sort_order(&conn, Some("n1")).unwrap(), 10.0);
         assert_eq!(max_sort_order(&conn, Some("n2")).unwrap(), 0.0);

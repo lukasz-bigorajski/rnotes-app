@@ -8,7 +8,12 @@ use crate::services::config_service;
 
 /// Save raw bytes to `assets/{note_id}/{uuid}.{ext}` inside the app data dir.
 /// Returns the relative path: `assets/{note_id}/{uuid}.{ext}`.
-pub fn save_asset(app: &AppHandle, note_id: &str, filename: &str, data: Vec<u8>) -> AppResult<String> {
+pub fn save_asset(
+    app: &AppHandle,
+    note_id: &str,
+    filename: &str,
+    data: Vec<u8>,
+) -> AppResult<String> {
     let data_dir = config_service::resolve_data_dir(app)?;
     let note_assets_dir = data_dir.join("assets").join(note_id);
     std::fs::create_dir_all(&note_assets_dir)?;
@@ -31,7 +36,10 @@ pub fn read_asset(app: &AppHandle, asset_path: &str) -> AppResult<Vec<u8>> {
     let full_path = data_dir.join(asset_path);
 
     if !full_path.exists() {
-        return Err(AppError::NotFound(format!("asset not found: {}", asset_path)));
+        return Err(AppError::NotFound(format!(
+            "asset not found: {}",
+            asset_path
+        )));
     }
 
     Ok(std::fs::read(full_path)?)

@@ -163,8 +163,10 @@ pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<
 
     // Load existing tasks to preserve notify_at values when no dueDate is in TipTap JSON
     let existing = get_tasks_for_note(conn, note_id)?;
-    let existing_notify_map: std::collections::HashMap<String, Option<i64>> =
-        existing.into_iter().map(|t| (t.content, t.notify_at)).collect();
+    let existing_notify_map: std::collections::HashMap<String, Option<i64>> = existing
+        .into_iter()
+        .map(|t| (t.content, t.notify_at))
+        .collect();
 
     let now = now_ms();
 
@@ -527,12 +529,16 @@ mod tests {
         conn.execute(
             "UPDATE note_tasks SET notify_at = 9999 WHERE id = ?1",
             [task_id],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Re-sync — notify_at should be preserved for "Buy groceries"
         sync_tasks(&conn, &note_id, TIPTAP_JSON_WITH_TASKS).unwrap();
         let updated = get_tasks_for_note(&conn, &note_id).unwrap();
-        let grocery_task = updated.iter().find(|t| t.content == "Buy groceries").unwrap();
+        let grocery_task = updated
+            .iter()
+            .find(|t| t.content == "Buy groceries")
+            .unwrap();
         assert_eq!(grocery_task.notify_at, Some(9999));
     }
 
@@ -547,7 +553,8 @@ mod tests {
         conn.execute(
             "UPDATE notes SET deleted_at = 1234 WHERE id = ?1",
             [&note_id],
-        ).unwrap();
+        )
+        .unwrap();
 
         let all_tasks = get_all_tasks(&conn).unwrap();
         assert!(all_tasks.is_empty());

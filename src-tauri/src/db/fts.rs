@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::Serialize;
 
 use crate::error::{AppError, AppResult};
@@ -73,10 +73,7 @@ pub fn search(conn: &Connection, query: &str) -> AppResult<Vec<SearchResult>> {
 }
 
 pub fn upsert(conn: &Connection, note_id: &str, title: &str, body: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM notes_fts WHERE note_id = ?1",
-        params![note_id],
-    )?;
+    conn.execute("DELETE FROM notes_fts WHERE note_id = ?1", params![note_id])?;
     conn.execute(
         "INSERT INTO notes_fts (note_id, title, body) VALUES (?1, ?2, ?3)",
         params![note_id, title, body],
@@ -85,10 +82,7 @@ pub fn upsert(conn: &Connection, note_id: &str, title: &str, body: &str) -> AppR
 }
 
 pub fn remove(conn: &Connection, note_id: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM notes_fts WHERE note_id = ?1",
-        params![note_id],
-    )?;
+    conn.execute("DELETE FROM notes_fts WHERE note_id = ?1", params![note_id])?;
     Ok(())
 }
 
@@ -200,7 +194,13 @@ mod tests {
     fn test_search_finds_matching_note() {
         let conn = test_connection();
         insert_note(&conn, "note-1", "My Rust Note");
-        upsert(&conn, "note-1", "My Rust Note", "Rust is great for systems programming").unwrap();
+        upsert(
+            &conn,
+            "note-1",
+            "My Rust Note",
+            "Rust is great for systems programming",
+        )
+        .unwrap();
 
         let results = search(&conn, "Rust").unwrap();
         assert_eq!(results.len(), 1);
