@@ -12,6 +12,10 @@
   position: relative;
 }
 
+:global([data-mantine-color-scheme="dark"]) .titleRow {
+  border-bottom-color: var(--mantine-color-dark-3);
+}
+
 .saveStatusRow {
   position: absolute;
   top: 16px;
@@ -175,6 +179,10 @@
   color: var(--mantine-color-dimmed);
   text-decoration: none;
   cursor: pointer;
+}
+
+:global([data-mantine-color-scheme="dark"]) .editorContent :global(.tiptap [data-type="toc"] a) {
+  color: var(--mantine-color-dark-1);
 }
 
 .editorContent :global(.tiptap [data-type="toc"] a:hover) {

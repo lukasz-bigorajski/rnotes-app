@@ -76,6 +76,7 @@ export const TocExtension = Node.create({
           a.textContent = h.text;
           a.addEventListener("click", (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const editorDom = editor.view.dom as HTMLElement;
             const headingEls = editorDom.querySelectorAll("h1, h2, h3, h4, h5, h6");
             const target = Array.from(headingEls).find(

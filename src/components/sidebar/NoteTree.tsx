@@ -155,15 +155,28 @@ function DraggableTreeNode({
       ) : (
         <IconNote size={16} className={classes.noteIcon} />
       )}
-      <span className={classes.label}>{node.label}</span>
-      {showChildIndicator && <span className={classes.childIndicator} aria-label="has children" />}
-      <TreeNodeMenu
-        nodeId={node.value}
-        isFolder={isFolder}
-        onRename={() => setRenamingNodeId(node.value)}
-        onDelete={onDelete}
-        onCreateNote={onCreateNote}
-      />
+      <span
+        className={classes.label}
+        title={typeof node.label === "string" ? node.label : String(node.label)}
+      >
+        {node.label}
+      </span>
+      {showChildIndicator && (
+        <span
+          className={classes.childIndicator}
+          aria-label="has children"
+          title="Contains child notes"
+        />
+      )}
+      <span className={classes.menuButton}>
+        <TreeNodeMenu
+          nodeId={node.value}
+          isFolder={isFolder}
+          onRename={() => setRenamingNodeId(node.value)}
+          onDelete={onDelete}
+          onCreateNote={onCreateNote}
+        />
+      </span>
     </Group>
   );
 }

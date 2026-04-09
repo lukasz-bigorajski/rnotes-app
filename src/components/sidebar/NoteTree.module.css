@@ -53,6 +53,25 @@
   align-self: center;
 }
 
+/* Context menu button — hidden by default, shown on hover or when selected */
+.menuButton {
+  opacity: 0;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.treeNode:hover .menuButton,
+.treeNode[data-selected="true"] .menuButton {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Keep visible when the menu dropdown is open (Mantine sets data-expanded on Menu.Target) */
+.menuButton:has([data-expanded]) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* Drag & drop visual feedback */
 .dragging {
   opacity: 0.4;
