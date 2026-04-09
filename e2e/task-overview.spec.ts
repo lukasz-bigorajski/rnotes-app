@@ -101,11 +101,14 @@ test("clicking a note title link navigates to that note in the editor", async ({
   await expect(page.getByTestId("task-overview")).not.toBeVisible();
 });
 
-test("clicking a note in the sidebar switches back to editor view", async ({ page }) => {
+test("clicking Notes tab in sidebar switches back to editor view", async ({ page }) => {
   await page.getByTestId("task-overview-btn").click();
   await expect(page.getByTestId("task-overview")).toBeVisible();
 
-  // Click a note in the sidebar
+  // Click the Notes tab icon to go back to notes view
+  await page.getByRole("button", { name: "Notes" }).click();
+
+  // Note list should be visible, click a note
   await page.getByText("Test Note").click();
 
   // Editor should be visible, task overview should not

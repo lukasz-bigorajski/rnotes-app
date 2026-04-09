@@ -1,13 +1,24 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { MutableRefObject } from "react";
-import { Stack, Text, Button, Group, TextInput, Paper, UnstyledButton, ActionIcon } from "@mantine/core";
-import { IconPlus, IconFolder, IconChecklist, IconSearch, IconX, IconKeyboard, IconSettings } from "@tabler/icons-react";
-import { createNote, listNotes, searchNotes } from "../ipc/notes";
-import type { NoteRow, SearchResult } from "../ipc/notes";
+import { Stack, Text, Group, TextInput, ActionIcon, Menu } from "@mantine/core";
+import {
+  IconPlus,
+  IconFolder,
+  IconChecklist,
+  IconSearch,
+  IconKeyboard,
+  IconSettings,
+  IconNote,
+  IconArchive,
+  IconNotes,
+} from "@tabler/icons-react";
+import { createNote, listNotes } from "../ipc/notes";
+import type { NoteRow } from "../ipc/notes";
 import { notifyError } from "../utils/notify";
 import { DraggableTree } from "./sidebar/DraggableTree";
 import { ArchivePanel } from "./sidebar/ArchivePanel";
-import { ArchiveToggle } from "./sidebar/ArchiveToggle";
+
+type SidebarTab = "notes" | "tasks" | "archive";
 
 interface SidebarProps {
   activeNoteId: string | null;
@@ -16,6 +27,7 @@ interface SidebarProps {
   createNoteRef?: MutableRefObject<(() => void) | null>;
   createFolderRef?: MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
+  onShowNotes?: () => void;
   onOpenGlobalSearch?: () => void;
   onOpenShortcutsDialog?: () => void;
   onShowSettings?: () => void;
@@ -28,17 +40,14 @@ export function Sidebar({
   createNoteRef,
   createFolderRef,
   onShowTaskOverview,
+  onShowNotes,
   onOpenGlobalSearch,
   onOpenShortcutsDialog,
   onShowSettings,
 }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
-  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("notes");
   const [archivedCount, setArchivedCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadNotes = () => {
     listNotes().then(setNotes).catch(console.error);
@@ -112,159 +121,71 @@ export function Sidebar({
   const handleNoteRestored = () => {
     loadNotes();
     loadArchivedCount();
-    setIsArchiveOpen(false);
+    setActiveTab("notes");
   };
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    if (!value.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
+  const handleTabChange = (tab: SidebarTab) => {
+    setActiveTab(tab);
+    if (tab === "tasks") {
+      onShowTaskOverview?.();
+    } else if (tab === "notes") {
+      onShowNotes?.();
     }
-    setIsSearching(true);
-    searchDebounceRef.current = setTimeout(async () => {
-      try {
-        const results = await searchNotes(value.trim());
-        setSearchResults(results);
-      } catch (err) {
-        console.error("Search failed:", err);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-  }, []);
-
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setIsSearching(false);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-  }, []);
-
-  const handleResultClick = useCallback(
-    (id: string) => {
-      setActiveNoteId(id);
-      handleClearSearch();
-    },
-    [setActiveNoteId, handleClearSearch],
-  );
+  };
 
   // Filter out deleted notes for tree display.
-  // Memoized so the DraggableTree receives a stable array reference unless
-  // the notes list actually changes, avoiding unnecessary re-renders.
   const visibleNotes = useMemo(() => notes.filter((n) => !n.deleted_at), [notes]);
 
   return (
     <Stack gap="sm" h="100%" justify="space-between">
       <Stack gap="sm" style={{ flex: 1, overflow: "auto" }}>
-        {!isArchiveOpen && (
+        {activeTab === "notes" && (
           <>
-            <Group justify="space-between">
-              <Text fw={700} size="lg">
-                Notes
-              </Text>
-              <Group gap="xs">
-                {onOpenGlobalSearch && (
-                  <Button
-                    variant="subtle"
-                    size="compact-sm"
-                    title="Search all notes (Cmd+K)"
-                    aria-label="Open global search"
-                    leftSection={<IconSearch size={14} />}
-                    onClick={onOpenGlobalSearch}
-                    data-testid="open-global-search-btn"
-                  />
-                )}
-                <Button
-                  variant="subtle"
-                  size="compact-sm"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={handleCreateNote}
-                >
-                  Note
-                </Button>
-                <Button
-                  variant="subtle"
-                  size="compact-sm"
-                  leftSection={<IconFolder size={14} />}
-                  onClick={handleCreateFolder}
-                >
-                  Folder
-                </Button>
-                <Button
-                  variant="subtle"
-                  size="compact-sm"
-                  title="Task Overview"
-                  aria-label="Task Overview"
-                  leftSection={<IconChecklist size={14} />}
-                  onClick={onShowTaskOverview}
-                  data-testid="task-overview-btn"
-                >
-                  Tasks
-                </Button>
-              </Group>
+            <Group gap="xs">
+              <TextInput
+                placeholder="Search notes..."
+                leftSection={<IconSearch size={14} />}
+                size="xs"
+                style={{ flex: 1, cursor: "pointer" }}
+                readOnly
+                onClick={onOpenGlobalSearch}
+                onFocus={(e) => {
+                  e.target.blur();
+                  onOpenGlobalSearch?.();
+                }}
+                data-testid="open-global-search-btn"
+              />
+              <Menu position="bottom-end" withinPortal>
+                <Menu.Target>
+                  <ActionIcon
+                    variant="default"
+                    size="input-xs"
+                    aria-label="Create new"
+                    data-testid="create-new-btn"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconNote size={14} />}
+                    onClick={handleCreateNote}
+                    data-testid="create-note-btn"
+                  >
+                    New Note
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconFolder size={14} />}
+                    onClick={handleCreateFolder}
+                    data-testid="create-folder-btn"
+                  >
+                    New Folder
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
             </Group>
 
-            <TextInput
-              placeholder="Search notes..."
-              leftSection={<IconSearch size={14} />}
-              rightSection={
-                searchQuery ? (
-                  <UnstyledButton
-                    onClick={handleClearSearch}
-                    aria-label="Clear search"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
-                    <IconX size={14} />
-                  </UnstyledButton>
-                ) : null
-              }
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") handleClearSearch();
-              }}
-              size="xs"
-              data-testid="sidebar-search-input"
-            />
-
-            {searchQuery ? (
-              isSearching ? (
-                <Text c="dimmed" size="sm" ta="center">
-                  Searching…
-                </Text>
-              ) : searchResults.length === 0 ? (
-                <Text c="dimmed" size="sm" ta="center" mt="sm" data-testid="search-no-results">
-                  No results found.
-                </Text>
-              ) : (
-                <Stack gap={4} data-testid="search-results-list">
-                  {searchResults.map((result) => (
-                    <Paper
-                      key={result.id}
-                      p="xs"
-                      withBorder
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleResultClick(result.id)}
-                      data-testid="search-result-item"
-                    >
-                      <Text fw={700} size="sm" truncate>
-                        {result.title}
-                      </Text>
-                      <Text
-                        size="xs"
-                        c="dimmed"
-                        lineClamp={2}
-                        dangerouslySetInnerHTML={{ __html: result.snippet }}
-                      />
-                    </Paper>
-                  ))}
-                </Stack>
-              )
-            ) : visibleNotes.length === 0 ? (
+            {visibleNotes.length === 0 ? (
               <Text c="dimmed" ta="center" mt="xl">
                 No notes yet. Create one to get started.
               </Text>
@@ -282,18 +203,53 @@ export function Sidebar({
           </>
         )}
 
-        {isArchiveOpen && (
+        {activeTab === "archive" && (
           <ArchivePanel onNoteRestored={handleNoteRestored} />
         )}
       </Stack>
 
-      <Group justify="space-between" align="center">
-        <ArchiveToggle
-          isArchiveOpen={isArchiveOpen}
-          setIsArchiveOpen={setIsArchiveOpen}
-          archivedCount={archivedCount}
-        />
-        <Group gap="xs">
+      <Stack gap={4}>
+        <Group justify="center" gap="xs">
+          <ActionIcon
+            variant={activeTab === "notes" ? "light" : "subtle"}
+            size="lg"
+            title="Notes"
+            aria-label="Notes"
+            onClick={() => handleTabChange("notes")}
+          >
+            <IconNotes size={18} />
+          </ActionIcon>
+          <ActionIcon
+            variant={activeTab === "tasks" ? "light" : "subtle"}
+            size="lg"
+            title="Tasks"
+            aria-label="Task Overview"
+            onClick={() => handleTabChange("tasks")}
+            data-testid="task-overview-btn"
+          >
+            <IconChecklist size={18} />
+          </ActionIcon>
+          <ActionIcon
+            variant={activeTab === "archive" ? "light" : "subtle"}
+            size="lg"
+            title={`Archive${archivedCount > 0 ? ` (${archivedCount})` : ""}`}
+            aria-label="Archive"
+            onClick={() => handleTabChange("archive")}
+            style={{ position: "relative" }}
+          >
+            <IconArchive size={18} />
+            {archivedCount > 0 && (
+              <Text
+                size="8px"
+                fw={700}
+                c="blue"
+                style={{ position: "absolute", top: 2, right: 2 }}
+              >
+                {archivedCount}
+              </Text>
+            )}
+          </ActionIcon>
+          <div style={{ flex: 1 }} />
           {onOpenShortcutsDialog && (
             <ActionIcon
               variant="subtle"
@@ -319,7 +275,7 @@ export function Sidebar({
             </ActionIcon>
           )}
         </Group>
-      </Group>
+      </Stack>
     </Stack>
   );
 }

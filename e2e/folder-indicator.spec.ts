@@ -10,7 +10,8 @@ test("collapsed folder with children shows child indicator", async ({ page }) =>
   await page.goto("/");
 
   // Create a folder
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-folder-btn").click();
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 
@@ -39,7 +40,8 @@ test("empty folder does not show child indicator", async ({ page }) => {
   await page.goto("/");
 
   // Create a folder — it starts empty
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-folder-btn").click();
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 
@@ -54,7 +56,8 @@ test("child indicator is hidden when folder is expanded", async ({ page }) => {
   await page.goto("/");
 
   // Create a folder and add a note to it
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-folder-btn").click();
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 

@@ -5,7 +5,8 @@ test("tree renders folder/note hierarchy", async ({ page }) => {
   await page.goto("/");
 
   // Create a folder via the Folder button
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-folder-btn").click();
 
   // Wait for "Untitled Folder" to appear in the sidebar
   const folderItem = page.getByText("Untitled Folder");
@@ -128,7 +129,8 @@ test("drag note onto folder moves it into folder", async ({ page }) => {
   await page.goto("/");
 
   // Create a folder
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-folder-btn").click();
   await page.getByText("Untitled Folder").waitFor({ state: "visible" });
 
   // Locate both elements

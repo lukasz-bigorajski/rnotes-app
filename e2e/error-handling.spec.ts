@@ -4,7 +4,7 @@ import { test, expect } from "./fixtures/tauri-mock";
 test("notification container exists in the DOM", async ({ page }) => {
   await page.goto("/");
   // Just verify the app loads without errors — Mantine Notifications injects a portal container
-  await expect(page.getByRole("paragraph").filter({ hasText: "Notes" })).toBeVisible();
+  await expect(page.getByTestId("open-global-search-btn")).toBeVisible();
 });
 
 // Test 2: Deleting a note shows a confirmation dialog

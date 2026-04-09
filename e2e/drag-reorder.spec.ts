@@ -9,7 +9,8 @@ test("drag note to last position by dropping on bottom half of last item", async
   await expect(page.locator("nav").getByText("Test Note")).toBeVisible();
 
   // Create two more notes so we have 3 items
-  await page.getByRole("button", { name: "Note", exact: true }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-note-btn").click();
   await page.locator("nav").getByText("Untitled").first().waitFor({ state: "visible" });
 
   // Rename the second note to "Note B" via context menu
@@ -27,7 +28,8 @@ test("drag note to last position by dropping on bottom half of last item", async
   await page.locator("nav").getByText("Note B").waitFor({ state: "visible" });
 
   // Create a third note
-  await page.getByRole("button", { name: "Note", exact: true }).click();
+  await page.getByTestId("create-new-btn").click();
+  await page.getByTestId("create-note-btn").click();
   await page.locator("nav").getByText("Untitled").first().waitFor({ state: "visible" });
 
   // Rename to "Note C"

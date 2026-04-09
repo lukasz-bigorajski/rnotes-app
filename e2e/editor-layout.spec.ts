@@ -11,7 +11,8 @@ test.describe("Editable note title", () => {
 
   test("new note auto-focuses title with Untitled selected", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Note", exact: true }).click();
+    await page.getByTestId("create-new-btn").click();
+    await page.getByTestId("create-note-btn").click();
 
     const titleInput = page.getByTestId("note-title-input");
     await expect(titleInput).toBeVisible();

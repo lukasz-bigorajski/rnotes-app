@@ -72,6 +72,10 @@ function AppInner() {
     setActiveView("tasks");
   };
 
+  const handleShowNotes = () => {
+    setActiveView("editor");
+  };
+
   const handleShowSettings = () => {
     setActiveNoteId(null);
     setActiveView("settings");
@@ -121,6 +125,7 @@ function AppInner() {
               createNoteRef={createNoteRef}
               createFolderRef={createFolderRef}
               onShowTaskOverview={handleShowTaskOverview}
+              onShowNotes={handleShowNotes}
               onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
               onOpenShortcutsDialog={() => setShortcutsDialogOpened(true)}
               onShowSettings={handleShowSettings}
