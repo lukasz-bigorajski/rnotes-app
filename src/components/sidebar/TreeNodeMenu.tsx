@@ -1,5 +1,6 @@
 import { Menu, ActionIcon } from "@mantine/core";
 import {
+  IconCopy,
   IconDots,
   IconFileText,
   IconFolderPlus,
@@ -13,6 +14,7 @@ interface TreeNodeMenuProps {
   onRename: (id: string) => void;
   onDelete: (id: string) => void;
   onCreateNote: (parentId: string, title: string, isFolder: boolean) => void;
+  onCopy: (id: string) => void;
 }
 
 export function TreeNodeMenu({
@@ -21,6 +23,7 @@ export function TreeNodeMenu({
   onRename,
   onDelete,
   onCreateNote,
+  onCopy,
 }: TreeNodeMenuProps) {
   return (
     <Menu position="bottom-start" shadow="md">
@@ -54,6 +57,14 @@ export function TreeNodeMenu({
         >
           Rename
         </Menu.Item>
+        {!isFolder && (
+          <Menu.Item
+            leftSection={<IconCopy size={14} />}
+            onClick={() => onCopy(nodeId)}
+          >
+            Duplicate
+          </Menu.Item>
+        )}
         <Menu.Item
           color="red"
           leftSection={<IconTrash size={14} />}

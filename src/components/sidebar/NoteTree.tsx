@@ -8,7 +8,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { buildTree } from "../../utils/buildTree";
 import type { NoteRow } from "../../ipc/notes";
 import type { TreeNodeData } from "@mantine/core";
-import { renameNote, deleteNoteTree, createNote } from "../../ipc/notes";
+import { renameNote, deleteNoteTree, createNote, copyNote } from "../../ipc/notes";
 import { notifyError } from "../../utils/notify";
 import { InlineRenameInput } from "./InlineRenameInput";
 import { TreeNodeMenu } from "./TreeNodeMenu";
@@ -37,6 +37,7 @@ function DraggableTreeNode({
   onRenameSubmit,
   onDelete,
   onCreateNote,
+  onCopy,
 }: {
   nodeId: string;
   payload: RenderTreeNodePayload;
@@ -49,6 +50,7 @@ function DraggableTreeNode({
   onRenameSubmit: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
   onCreateNote: (parentId: string, title: string, isFolder: boolean) => void;
+  onCopy: (id: string) => void;
 }) {
   const { node, expanded, hasChildren, elementProps } = payload;
   const isFolder = (node.nodeProps as { isFolder: boolean }).isFolder;
@@ -175,6 +177,7 @@ function DraggableTreeNode({
           onRename={() => setRenamingNodeId(node.value)}
           onDelete={onDelete}
           onCreateNote={onCreateNote}
+          onCopy={onCopy}
         />
       </span>
     </Group>
@@ -273,6 +276,20 @@ export function NoteTree({
     [tree, setActiveNoteId, onNotesChanged],
   );
 
+  const handleCopyNote = useCallback(
+    async (id: string) => {
+      try {
+        const copied = await copyNote(id);
+        setActiveNoteId(copied.id);
+        onNotesChanged();
+      } catch (err) {
+        console.error("Failed to copy note:", err);
+        notifyError("Copy failed", "Could not duplicate the note");
+      }
+    },
+    [setActiveNoteId, onNotesChanged],
+  );
+
   // Stabilise the renderNode callback with useCallback so Mantine's Tree does not
   // remount all nodes on every render (which would destroy dnd-kit's internal state
   // mid-drag and break the gesture).
@@ -292,6 +309,7 @@ export function NoteTree({
           onRenameSubmit={handleRenameSubmit}
           onDelete={handleDelete}
           onCreateNote={handleCreateNote}
+          onCopy={handleCopyNote}
         />
       );
     },
@@ -304,6 +322,7 @@ export function NoteTree({
       handleRenameSubmit,
       handleDelete,
       handleCreateNote,
+      handleCopyNote,
     ],
   );
 

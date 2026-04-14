@@ -201,6 +201,38 @@ pub fn restore_note(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn copy_note(conn: &Connection, source_id: &str) -> AppResult<Note> {
+    let source = notes::get_by_id(conn, source_id)?;
+
+    let now = now_ms();
+    let new_id = Uuid::now_v7().to_string();
+    let new_title = format!("Copy of {}", source.title);
+
+    // Place the copy directly after the original by using source.sort_order + 0.5,
+    // clamped so it does not collide if many copies exist (sort_order is a float).
+    let new_sort_order = source.sort_order + 0.5;
+
+    let new_note = Note {
+        id: new_id,
+        parent_id: source.parent_id.clone(),
+        title: new_title.clone(),
+        content: source.content.clone(),
+        sort_order: new_sort_order,
+        is_folder: false,
+        deleted_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+
+    let tx = conn.unchecked_transaction()?;
+    notes::insert(&tx, &new_note)?;
+    // Index in FTS — use empty plain text body (same as create_note for non-folders)
+    fts::upsert(&tx, &new_note.id, &new_title, "")?;
+    tx.commit()?;
+
+    Ok(new_note)
+}
+
 pub fn global_replace(
     conn: &Connection,
     note_id: &str,
@@ -448,6 +480,36 @@ mod tests {
         let restored = get_note(&conn, &note.id).unwrap();
         assert_eq!(restored.parent_id, Some(folder.id));
         assert_eq!(restored.deleted_at, None);
+    }
+
+    #[test]
+    fn test_copy_note_creates_distinct_note() {
+        let conn = test_connection();
+        let original = create_note(&conn, create_req("My Note", false)).unwrap();
+
+        let copy = copy_note(&conn, &original.id).unwrap();
+
+        // IDs must differ
+        assert_ne!(copy.id, original.id);
+        // Title must be prefixed
+        assert_eq!(copy.title, "Copy of My Note");
+        // Content must match
+        assert_eq!(copy.content, original.content);
+        // Not a folder
+        assert!(!copy.is_folder);
+        // Not deleted
+        assert!(copy.deleted_at.is_none());
+        // Has a valid UUID
+        assert!(uuid::Uuid::parse_str(&copy.id).is_ok());
+        // sort_order placed after the original
+        assert!(copy.sort_order > original.sort_order);
+    }
+
+    #[test]
+    fn test_copy_note_nonexistent_returns_error() {
+        let conn = test_connection();
+        let result = copy_note(&conn, "nonexistent-id");
+        assert!(result.is_err());
     }
 
     #[test]

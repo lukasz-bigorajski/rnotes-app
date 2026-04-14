@@ -106,6 +106,12 @@ pub fn search_notes(
 }
 
 #[tauri::command]
+pub fn copy_note(state: State<'_, DbState>, id: String) -> Result<Note, AppError> {
+    let conn = lock_db(&state)?;
+    note_service::copy_note(&conn, &id)
+}
+
+#[tauri::command]
 pub fn global_replace(
     state: State<'_, DbState>,
     note_id: String,

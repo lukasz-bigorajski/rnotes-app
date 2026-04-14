@@ -9,6 +9,8 @@ import {
   IconTable,
   IconTableOff,
   IconTablePlus,
+  IconArrowMerge,
+  IconArrowsSplit,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import { useEffect, useState, useCallback } from "react";
@@ -129,6 +131,26 @@ export function TableMenu({ editor }: TableMenuProps) {
             data-testid="table-menu-delete-column"
           >
             Delete Column
+          </Menu.Item>
+
+          <Divider />
+
+          <Menu.Label>Cells</Menu.Label>
+          <Menu.Item
+            leftSection={<IconArrowMerge size={14} />}
+            disabled={!editor.can().mergeCells()}
+            onClick={() => editor.chain().focus().mergeCells().run()}
+            data-testid="table-menu-merge-cells"
+          >
+            Merge Cells
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconArrowsSplit size={14} />}
+            disabled={!editor.can().splitCell()}
+            onClick={() => editor.chain().focus().splitCell().run()}
+            data-testid="table-menu-split-cell"
+          >
+            Split Cell
           </Menu.Item>
 
           <Divider />

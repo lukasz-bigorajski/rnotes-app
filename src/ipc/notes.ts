@@ -91,6 +91,10 @@ export function restoreNote(id: string): Promise<void> {
   return invoke("restore_note", { id });
 }
 
+export function copyNote(id: string): Promise<Note> {
+  return invoke("copy_note", { id });
+}
+
 export interface SearchResult {
   id: string;
   title: string;

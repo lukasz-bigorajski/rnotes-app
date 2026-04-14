@@ -137,6 +137,7 @@ pub fn run() {
             commands::note_commands::move_note,
             commands::note_commands::restore_note,
             commands::note_commands::search_notes,
+            commands::note_commands::copy_note,
             commands::note_commands::global_replace,
             commands::config_commands::get_config,
             commands::config_commands::get_user_config,
