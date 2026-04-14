@@ -11,6 +11,7 @@ import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
 import { RecoveryDialog } from "./components/RecoveryDialog";
 import { UserConfigProvider } from "./context/UserConfigContext";
 import { type AppHealth, getAppHealth } from "./ipc/backup";
+import { useUpdater } from "./hooks/useUpdater";
 
 type ActiveView = "editor" | "tasks" | "settings";
 
@@ -28,6 +29,8 @@ function AppInner() {
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
   const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
+
+  useUpdater();
 
   useEffect(() => {
     getAppHealth()
