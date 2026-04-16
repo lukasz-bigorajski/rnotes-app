@@ -66,26 +66,27 @@
         opacity="0.92">R</text>
 
   <!-- Small "notes" text below -->
-  <text x="174" y="382"
+  <text x="256" y="385"
         font-family="'Helvetica Neue', Arial, sans-serif"
         font-weight="600"
-        font-size="28"
-        letter-spacing="4"
+        font-size="42"
+        letter-spacing="5"
+        text-anchor="middle"
         fill="#4a7dd4"
         opacity="0.85">NOTES</text>
 
   <!-- Pen / pencil accent in bottom-right corner -->
-  <g transform="translate(320, 340) rotate(-38)">
+  <g transform="translate(338, 212) rotate(38)">
     <!-- Pencil body -->
-    <rect x="0" y="0" width="14" height="72" rx="3" fill="#ffd54f"/>
+    <rect x="0" y="0" width="22" height="115" rx="4" fill="#ffd54f"/>
     <!-- Pencil tip -->
-    <path d="M0 72 L7 92 L14 72 Z" fill="#f5a623"/>
+    <path d="M0 115 L11 142 L22 115 Z" fill="#f5a623"/>
     <!-- Pencil lead tip -->
-    <path d="M4 88 L7 96 L10 88 Z" fill="#333"/>
+    <path d="M6 137 L11 148 L16 137 Z" fill="#333"/>
     <!-- Pencil top eraser ferrule -->
-    <rect x="0" y="0" width="14" height="6" rx="2" fill="#e0e0e0"/>
+    <rect x="0" y="0" width="22" height="9" rx="3" fill="#e0e0e0"/>
     <!-- Eraser -->
-    <rect x="1" y="-8" width="12" height="8" rx="2" fill="#ff8a80"/>
+    <rect x="1.5" y="-12" width="19" height="12" rx="3" fill="#ff8a80"/>
   </g>
 
   <!-- Small sparkle/star accent top-left -->
