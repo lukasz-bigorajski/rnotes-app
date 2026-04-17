@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import type { MutableRefObject } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
@@ -19,6 +20,8 @@ interface NoteTreeProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
   onNotesChanged: () => void;
+  tree: ReturnType<typeof useTree>;
+  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
 }
 
 /**
@@ -109,6 +112,7 @@ function DraggableTreeNode({
         {...elementProps}
         className={[elementProps.className, classes.treeNode].filter(Boolean).join(" ")}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {isFolder ? (
           <IconFolder size={16} className={classes.folderIcon} />
@@ -189,10 +193,9 @@ export function NoteTree({
   activeNoteId,
   setActiveNoteId,
   onNotesChanged,
+  tree,
+  refreshActiveNoteRef,
 }: NoteTreeProps) {
-  const tree = useTree({
-    multiple: false,
-  });
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [isRenamingLoading, setIsRenamingLoading] = useState(false);
@@ -205,6 +208,7 @@ export function NoteTree({
       try {
         await renameNote({ id, title: newTitle });
         setRenamingNodeId(null);
+        if (id === activeNoteId) refreshActiveNoteRef?.current?.();
         onNotesChanged();
       } catch (err) {
         console.error("Failed to rename note:", err);
@@ -213,7 +217,7 @@ export function NoteTree({
         setIsRenamingLoading(false);
       }
     },
-    [onNotesChanged],
+    [onNotesChanged, activeNoteId, refreshActiveNoteRef],
   );
 
   const doDelete = useCallback(

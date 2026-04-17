@@ -86,6 +86,7 @@ interface NoteEditorProps {
   onSave?: (params: { id: string; content: string; plainText: string }) => Promise<void>;
   onTitleChange?: (newTitle: string) => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
+  flushTitleSaveRef?: MutableRefObject<(() => void) | null>;
   autoSaveIntervalMs?: number;
   fontSize?: number;
   fontFamily?: string;
@@ -102,6 +103,7 @@ export function NoteEditor({
   onSave,
   onTitleChange,
   forceSaveRef,
+  flushTitleSaveRef,
   autoSaveIntervalMs = 1000,
   fontSize = 16,
   fontFamily = "system",
@@ -426,6 +428,26 @@ export function NoteEditor({
       if (forceSaveRef) forceSaveRef.current = null;
     };
   }, [forceSaveRef]);
+
+  // Expose flush-title-save via ref so App.tsx can call it before switching views
+  const localTitleRef = useRef(localTitle);
+  localTitleRef.current = localTitle;
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+
+  useEffect(() => {
+    if (!flushTitleSaveRef) return;
+    flushTitleSaveRef.current = () => {
+      if (titleSaveTimeout.current) {
+        clearTimeout(titleSaveTimeout.current);
+        titleSaveTimeout.current = null;
+        onTitleChangeRef.current?.(localTitleRef.current);
+      }
+    };
+    return () => {
+      if (flushTitleSaveRef) flushTitleSaveRef.current = null;
+    };
+  }, [flushTitleSaveRef]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

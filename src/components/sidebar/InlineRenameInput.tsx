@@ -32,14 +32,13 @@ export function InlineRenameInput({
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    e.stopPropagation();
     if (e.key === "Enter") {
-      e.stopPropagation();
       const trimmed = value.trim();
       if (trimmed) {
         onCommit(trimmed);
       }
     } else if (e.key === "Escape") {
-      e.stopPropagation();
       onCancel();
     }
   }, [value, onCommit, onCancel]);

@@ -26,6 +26,8 @@ function AppInner() {
   const createNoteRef = useRef<(() => void) | null>(null);
   const createFolderRef = useRef<(() => void) | null>(null);
   const forceSaveRef = useRef<(() => void) | null>(null);
+  const flushTitleSaveRef = useRef<(() => void) | null>(null);
+  const refreshActiveNoteRef = useRef<(() => void) | null>(null);
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
   const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
@@ -71,6 +73,8 @@ function AppInner() {
   };
 
   const handleShowTaskOverview = () => {
+    flushTitleSaveRef.current?.();
+    forceSaveRef.current?.();
     setActiveNoteId(null);
     setActiveView("tasks");
   };
@@ -132,6 +136,7 @@ function AppInner() {
               onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
               onOpenShortcutsDialog={() => setShortcutsDialogOpened(true)}
               onShowSettings={handleShowSettings}
+              refreshActiveNoteRef={refreshActiveNoteRef}
             />
           </AppShell.Navbar>
         )}
@@ -154,6 +159,8 @@ function AppInner() {
               activeNoteId={activeNoteId}
               onNotesChanged={handleNotesChanged}
               forceSaveRef={forceSaveRef}
+              flushTitleSaveRef={flushTitleSaveRef}
+              refreshActiveNoteRef={refreshActiveNoteRef}
               onNavigateToNote={handleNavigateToNote}
             />
           )}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { MutableRefObject } from "react";
+import { useTree } from "@mantine/core";
 import { Stack, Text, Group, TextInput, ActionIcon, Menu } from "@mantine/core";
 import {
   IconPlus,
@@ -26,6 +27,7 @@ interface SidebarProps {
   refreshRef?: MutableRefObject<(() => void) | null>;
   createNoteRef?: MutableRefObject<(() => void) | null>;
   createFolderRef?: MutableRefObject<(() => void) | null>;
+  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
   onShowNotes?: () => void;
   onOpenGlobalSearch?: () => void;
@@ -39,6 +41,7 @@ export function Sidebar({
   refreshRef,
   createNoteRef,
   createFolderRef,
+  refreshActiveNoteRef,
   onShowTaskOverview,
   onShowNotes,
   onOpenGlobalSearch,
@@ -48,6 +51,39 @@ export function Sidebar({
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [activeTab, setActiveTab] = useState<SidebarTab>("notes");
   const [archivedCount, setArchivedCount] = useState(0);
+
+  const storedExpandedIds = (() => {
+    try {
+      const stored = localStorage.getItem("rnotes.sidebar.expanded");
+      if (stored) return JSON.parse(stored) as string[];
+    } catch {
+      // ignore
+    }
+    return [] as string[];
+  })();
+
+  const persistExpandedRef = useRef<Set<string>>(new Set(storedExpandedIds));
+
+  const saveExpanded = (ids: Set<string>) => {
+    try {
+      localStorage.setItem("rnotes.sidebar.expanded", JSON.stringify([...ids]));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const tree = useTree({
+    multiple: false,
+    initialExpandedState: Object.fromEntries(storedExpandedIds.map((id) => [id, true])),
+    onNodeExpand: (value) => {
+      persistExpandedRef.current.add(value);
+      saveExpanded(persistExpandedRef.current);
+    },
+    onNodeCollapse: (value) => {
+      persistExpandedRef.current.delete(value);
+      saveExpanded(persistExpandedRef.current);
+    },
+  });
 
   const loadNotes = () => {
     listNotes().then(setNotes).catch(console.error);
@@ -194,10 +230,12 @@ export function Sidebar({
                 notes={visibleNotes}
                 activeNoteId={activeNoteId}
                 setActiveNoteId={setActiveNoteId}
+                tree={tree}
                 onNotesChanged={() => {
                   loadNotes();
                   loadArchivedCount();
                 }}
+                refreshActiveNoteRef={refreshActiveNoteRef}
               />
             )}
           </>

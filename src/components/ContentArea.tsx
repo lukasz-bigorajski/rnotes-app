@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconNotes } from "@tabler/icons-react";
@@ -13,6 +13,8 @@ interface ContentAreaProps {
   activeNoteId: string | null;
   onNotesChanged?: () => void;
   forceSaveRef?: MutableRefObject<(() => void) | null>;
+  flushTitleSaveRef?: MutableRefObject<(() => void) | null>;
+  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   onNavigateToNote?: (noteId: string) => void;
 }
 
@@ -20,9 +22,18 @@ export function ContentArea({
   activeNoteId,
   onNotesChanged,
   forceSaveRef,
+  flushTitleSaveRef,
+  refreshActiveNoteRef,
   onNavigateToNote,
 }: ContentAreaProps) {
-  const { note, loading, saveNote } = useActiveNote(activeNoteId);
+  const { note, loading, saveNote, updateTitle, refreshNote } = useActiveNote(activeNoteId);
+
+  useEffect(() => {
+    if (refreshActiveNoteRef) refreshActiveNoteRef.current = refreshNote;
+    return () => {
+      if (refreshActiveNoteRef) refreshActiveNoteRef.current = null;
+    };
+  }, [refreshActiveNoteRef, refreshNote]);
   const { config } = useUserConfig();
 
   const parsedContent = useMemo<JSONContent | null>(() => {
@@ -42,13 +53,14 @@ export function ContentArea({
       if (!activeNoteId) return;
       try {
         await renameNote({ id: activeNoteId, title: newTitle });
+        updateTitle(newTitle);
         onNotesChanged?.();
       } catch (err) {
         console.error("Failed to rename note:", err);
         notifyError("Rename failed", "Could not rename the note");
       }
     },
-    [activeNoteId, onNotesChanged],
+    [activeNoteId, onNotesChanged, updateTitle],
   );
 
   if (!activeNoteId) {
@@ -84,6 +96,7 @@ export function ContentArea({
         onSave={saveNote}
         onTitleChange={handleTitleChange}
         forceSaveRef={forceSaveRef}
+        flushTitleSaveRef={flushTitleSaveRef}
         autoSaveIntervalMs={config.auto_save_interval_ms}
         fontSize={config.font_size}
         fontFamily={config.font_family}

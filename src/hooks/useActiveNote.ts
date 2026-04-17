@@ -45,5 +45,20 @@ export function useActiveNote(activeNoteId: string | null) {
     [],
   );
 
-  return { note, loading, saveNote };
+  const updateTitle = useCallback((newTitle: string) => {
+    setNote((prev) => (prev ? { ...prev, title: newTitle } : prev));
+    if (noteRef.current) noteRef.current = { ...noteRef.current, title: newTitle };
+  }, []);
+
+  const refreshNote = useCallback(() => {
+    if (!activeNoteId) return;
+    getNote(activeNoteId)
+      .then((loaded) => {
+        setNote(loaded);
+        noteRef.current = loaded;
+      })
+      .catch(console.error);
+  }, [activeNoteId]);
+
+  return { note, loading, saveNote, updateTitle, refreshNote };
 }

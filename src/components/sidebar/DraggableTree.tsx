@@ -8,17 +8,21 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { useCallback, useMemo, useState } from "react";
+import type { MutableRefObject } from "react";
 import type { NoteRow } from "../../ipc/notes";
 import { moveNote } from "../../ipc/notes";
 import { calcSortOrder, type Sibling } from "../../utils/calcSortOrder";
 import { NoteTree } from "./NoteTree";
 import { DragOverlay } from "./DragOverlay";
+import { useTree } from "@mantine/core";
 
 interface DraggableTreeProps {
   notes: NoteRow[];
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
   onNotesChanged: () => void;
+  tree: ReturnType<typeof useTree>;
+  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
 }
 
 export function DraggableTree({
@@ -26,6 +30,8 @@ export function DraggableTree({
   activeNoteId,
   setActiveNoteId,
   onNotesChanged,
+  tree,
+  refreshActiveNoteRef,
 }: DraggableTreeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -171,6 +177,8 @@ export function DraggableTree({
         activeNoteId={activeNoteId}
         setActiveNoteId={setActiveNoteId}
         onNotesChanged={onNotesChanged}
+        tree={tree}
+        refreshActiveNoteRef={refreshActiveNoteRef}
       />
 
       <DragOverlay
