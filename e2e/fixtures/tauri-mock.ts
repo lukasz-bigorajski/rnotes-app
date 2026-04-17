@@ -248,7 +248,30 @@ async function installTauriMock(page: Page) {
             }
             task.is_checked = isChecked;
             task.updated_at = Date.now();
-            return Promise.resolve();
+            // Also flip the taskItem in the owning note's content JSON
+            const note = notes.get(task.note_id);
+            if (note && note.content) {
+              try {
+                const json = JSON.parse(note.content);
+                const flipChecked = (node: any): boolean => {
+                  if (node.type === "taskItem" && node.attrs?.task_id === taskId) {
+                    node.attrs.checked = isChecked;
+                    return true;
+                  }
+                  if (Array.isArray(node.content)) {
+                    for (const child of node.content) {
+                      if (flipChecked(child)) return true;
+                    }
+                  }
+                  return false;
+                };
+                flipChecked(json);
+                note.content = JSON.stringify(json);
+              } catch {
+                // ignore parse errors in mock
+              }
+            }
+            return Promise.resolve({ note_id: task.note_id });
           }
 
           case "add_mock_task": {

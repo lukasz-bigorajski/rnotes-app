@@ -6,6 +6,12 @@ use uuid::Uuid;
 use crate::db::tasks::NoteTask;
 use crate::error::{AppError, AppResult};
 
+/// Returned by `update_task_checked` so callers know which note was affected.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpdateTaskCheckedResult {
+    pub note_id: String,
+}
+
 fn now_ms() -> i64 {
     let dur = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -107,6 +113,140 @@ fn collect_task_items(node: &Value, items: &mut Vec<(String, bool, Option<i64>)>
     }
 }
 
+/// Walk the ProseMirror JSON tree and stamp each `taskItem` node with the UUIDs from
+/// `task_ids` (consumed in document order, same order as `collect_task_items`).
+/// Returns the modified JSON value.
+fn stamp_task_ids(node: Value, task_ids: &mut std::collections::VecDeque<String>) -> Value {
+    match node {
+        Value::Object(mut map) => {
+            let node_type = map.get("type").and_then(|t| t.as_str()).map(str::to_owned);
+            if node_type.as_deref() == Some("taskItem") {
+                // Assign the next task_id
+                if let Some(id) = task_ids.pop_front() {
+                    let attrs = map.entry("attrs").or_insert_with(|| Value::Object(Default::default()));
+                    if let Value::Object(attrs_map) = attrs {
+                        attrs_map.insert("task_id".to_owned(), Value::String(id));
+                    }
+                }
+                // Recurse into children (only non-paragraph to match collect_task_items order)
+                if let Some(Value::Array(children)) = map.remove("content") {
+                    let new_children: Vec<Value> = children
+                        .into_iter()
+                        .map(|child| {
+                            let is_paragraph = child.get("type").and_then(|t| t.as_str()) == Some("paragraph");
+                            if is_paragraph {
+                                child // paragraphs don't contain nested taskItems
+                            } else {
+                                stamp_task_ids(child, task_ids)
+                            }
+                        })
+                        .collect();
+                    map.insert("content".to_owned(), Value::Array(new_children));
+                }
+            } else {
+                // Recurse into all children
+                if let Some(Value::Array(children)) = map.remove("content") {
+                    let new_children: Vec<Value> = children
+                        .into_iter()
+                        .map(|child| stamp_task_ids(child, task_ids))
+                        .collect();
+                    map.insert("content".to_owned(), Value::Array(new_children));
+                }
+            }
+            Value::Object(map)
+        }
+        other => other,
+    }
+}
+
+/// Walk the ProseMirror JSON tree and flip `attrs.checked` on the Nth `taskItem`
+/// (0-indexed ordinal). Fallback for nodes that don't have a `task_id` attr yet.
+fn flip_task_checked_by_ordinal(
+    node: Value,
+    target_ordinal: usize,
+    new_checked: bool,
+    counter: &mut usize,
+) -> (Value, bool) {
+    match node {
+        Value::Object(mut map) => {
+            let node_type = map.get("type").and_then(|t| t.as_str()).map(str::to_owned);
+            if node_type.as_deref() == Some("taskItem") {
+                if *counter == target_ordinal {
+                    let attrs = map
+                        .entry("attrs")
+                        .or_insert_with(|| Value::Object(Default::default()));
+                    if let Value::Object(attrs_map) = attrs {
+                        attrs_map.insert("checked".to_owned(), Value::Bool(new_checked));
+                    }
+                    *counter += 1;
+                    return (Value::Object(map), true);
+                }
+                *counter += 1;
+            }
+            let mut found = false;
+            if let Some(Value::Array(children)) = map.remove("content") {
+                let mut new_children = Vec::with_capacity(children.len());
+                for child in children {
+                    if found {
+                        new_children.push(child);
+                    } else {
+                        let (updated, did_find) =
+                            flip_task_checked_by_ordinal(child, target_ordinal, new_checked, counter);
+                        found = did_find;
+                        new_children.push(updated);
+                    }
+                }
+                map.insert("content".to_owned(), Value::Array(new_children));
+            }
+            (Value::Object(map), found)
+        }
+        other => (other, false),
+    }
+}
+
+/// Walk the ProseMirror JSON tree and flip `attrs.checked` on the `taskItem` whose
+/// `attrs.task_id` matches `target_task_id`. Returns the modified JSON and a bool
+/// indicating whether the node was found.
+fn flip_task_checked_in_json(node: Value, target_task_id: &str, new_checked: bool) -> (Value, bool) {
+    match node {
+        Value::Object(mut map) => {
+            let node_type = map.get("type").and_then(|t| t.as_str()).map(str::to_owned);
+            if node_type.as_deref() == Some("taskItem") {
+                let existing_task_id = map
+                    .get("attrs")
+                    .and_then(|a| a.get("task_id"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_owned);
+                if existing_task_id.as_deref() == Some(target_task_id) {
+                    // Found it — flip checked
+                    let attrs = map.entry("attrs").or_insert_with(|| Value::Object(Default::default()));
+                    if let Value::Object(attrs_map) = attrs {
+                        attrs_map.insert("checked".to_owned(), Value::Bool(new_checked));
+                    }
+                    return (Value::Object(map), true);
+                }
+            }
+            // Recurse into children
+            let mut found = false;
+            if let Some(Value::Array(children)) = map.remove("content") {
+                let mut new_children = Vec::with_capacity(children.len());
+                for child in children {
+                    if found {
+                        new_children.push(child);
+                    } else {
+                        let (updated, did_find) = flip_task_checked_in_json(child, target_task_id, new_checked);
+                        found = did_find;
+                        new_children.push(updated);
+                    }
+                }
+                map.insert("content".to_owned(), Value::Array(new_children));
+            }
+            (Value::Object(map), found)
+        }
+        other => (other, false),
+    }
+}
+
 /// Extract text only from paragraph children of a taskItem (not nested taskLists).
 fn extract_task_item_text(task_item_node: &Value) -> String {
     let mut parts = Vec::new();
@@ -158,6 +298,8 @@ fn parse_task_items(content: &str) -> Vec<(String, bool, Option<i64>)> {
 /// The `dueDate` attribute from the TipTap node takes priority for `notify_at`.
 /// If `dueDate` is absent from the TipTap node, preserves any existing `notify_at` by
 /// matching on content text (best effort).
+/// Also stamps each `taskItem` node in the note JSON with a stable `task_id` attribute
+/// and writes the updated JSON back to `notes.content`.
 pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<()> {
     let parsed_items = parse_task_items(content);
 
@@ -170,14 +312,33 @@ pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<
 
     let now = now_ms();
 
+    // Assign stable UUIDs for all task items
+    let task_ids: Vec<String> = parsed_items
+        .iter()
+        .map(|_| Uuid::now_v7().to_string())
+        .collect();
+
+    // Stamp task_id attributes into the content JSON
+    let stamped_content = match serde_json::from_str::<Value>(content) {
+        Ok(json) => {
+            let mut ids_queue: std::collections::VecDeque<String> =
+                task_ids.iter().cloned().collect();
+            let stamped = stamp_task_ids(json, &mut ids_queue);
+            match serde_json::to_string(&stamped) {
+                Ok(s) => s,
+                Err(_) => content.to_owned(),
+            }
+        }
+        Err(_) => content.to_owned(),
+    };
+
     let tx = conn.unchecked_transaction()?;
 
     // Delete all existing tasks for this note
     tx.execute("DELETE FROM note_tasks WHERE note_id = ?1", [note_id])?;
 
-    // Insert new tasks from content
-    for (text, checked, due_date_ms) in parsed_items {
-        let id = Uuid::now_v7().to_string();
+    // Insert new tasks from content, using the pre-assigned task_ids
+    for ((text, checked, due_date_ms), id) in parsed_items.into_iter().zip(task_ids.iter()) {
         // If TipTap provided a dueDate attribute, use it; otherwise fall back to the DB value
         let notify_at = if due_date_ms.is_some() {
             due_date_ms
@@ -190,6 +351,12 @@ pub fn sync_tasks(conn: &Connection, note_id: &str, content: &str) -> AppResult<
             rusqlite::params![id, note_id, text, checked as i64, notify_at, now, now],
         )?;
     }
+
+    // Write the stamped content (with task_id attrs) back to notes.content
+    tx.execute(
+        "UPDATE notes SET content = ?1, updated_at = ?2 WHERE id = ?3",
+        rusqlite::params![stamped_content, now, note_id],
+    )?;
 
     tx.commit()?;
     Ok(())
@@ -223,17 +390,77 @@ pub fn get_tasks_for_note(conn: &Connection, note_id: &str) -> AppResult<Vec<Not
     Ok(tasks)
 }
 
-/// Update the `is_checked` status of a single task.
-pub fn update_task_checked(conn: &Connection, task_id: &str, is_checked: bool) -> AppResult<()> {
+/// Update the `is_checked` status of a single task and flip the corresponding
+/// `taskItem` node's `checked` attribute in the owning note's ProseMirror JSON.
+/// All changes happen in a single SQLite transaction.
+/// Returns the note_id of the affected note.
+pub fn update_task_checked(
+    conn: &Connection,
+    task_id: &str,
+    is_checked: bool,
+) -> AppResult<UpdateTaskCheckedResult> {
     let now = now_ms();
-    let rows = conn.execute(
+
+    // Look up the task to get its note_id and ordinal position (0-indexed)
+    let (note_id, ordinal) = conn
+        .query_row(
+            "SELECT note_id,
+                    (SELECT COUNT(*) FROM note_tasks
+                     WHERE note_id = t.note_id AND created_at < t.created_at)
+             FROM note_tasks t WHERE t.id = ?1",
+            [task_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?)),
+        )
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(format!("task {task_id}")),
+            other => AppError::Database(other),
+        })?;
+
+    // Load note content
+    let note_content: Option<String> = conn
+        .query_row(
+            "SELECT content FROM notes WHERE id = ?1",
+            [&note_id],
+            |row| row.get(0),
+        )
+        .map_err(AppError::Database)?;
+
+    // Flip checked in ProseMirror JSON: try task_id attr first, fall back to ordinal
+    let new_content = note_content.as_deref().and_then(|content| {
+        let json = serde_json::from_str::<Value>(content).ok()?;
+        let (updated, found) = flip_task_checked_in_json(json.clone(), task_id, is_checked);
+        if found {
+            serde_json::to_string(&updated).ok()
+        } else {
+            let mut counter = 0usize;
+            let (updated, found) =
+                flip_task_checked_by_ordinal(json, ordinal, is_checked, &mut counter);
+            if found { serde_json::to_string(&updated).ok() } else { None }
+        }
+    });
+
+    let tx = conn.unchecked_transaction()?;
+
+    // Update note_tasks
+    let rows = tx.execute(
         "UPDATE note_tasks SET is_checked = ?1, updated_at = ?2 WHERE id = ?3",
         rusqlite::params![is_checked as i64, now, task_id],
     )?;
     if rows == 0 {
         return Err(AppError::NotFound(format!("task {task_id}")));
     }
-    Ok(())
+
+    // Update notes.content if we successfully patched the JSON
+    if let Some(content) = new_content {
+        tx.execute(
+            "UPDATE notes SET content = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![content, now, note_id],
+        )?;
+    }
+
+    tx.commit()?;
+
+    Ok(UpdateTaskCheckedResult { note_id })
 }
 
 /// Get all tasks across all notes (for future task overview).
@@ -595,5 +822,99 @@ mod tests {
         let all_tasks = get_all_tasks(&conn).unwrap();
         assert_eq!(all_tasks.len(), 2);
         assert_eq!(all_tasks[0].note_title, "Test Note");
+    }
+
+    /// Helper: read the raw `content` column of a note directly from DB.
+    fn get_note_content(conn: &Connection, note_id: &str) -> String {
+        conn.query_row(
+            "SELECT content FROM notes WHERE id = ?1",
+            [note_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .unwrap()
+        .unwrap_or_default()
+    }
+
+    #[test]
+    fn test_update_task_checked_also_flips_taskitem_in_note_content() {
+        let conn = test_connection();
+        let note_id = create_test_note(&conn);
+
+        // Write the content with tasks and let sync_tasks stamp task_id attrs
+        note_service::update_note(&conn, &note_id, "Test Note", TIPTAP_JSON_WITH_TASKS, "").unwrap();
+
+        // Fetch the task id for "Buy groceries" (was unchecked)
+        let tasks = get_tasks_for_note(&conn, &note_id).unwrap();
+        let grocery_task = tasks.iter().find(|t| t.content == "Buy groceries").unwrap();
+        let task_id = grocery_task.id.clone();
+        assert!(!grocery_task.is_checked);
+
+        // Flip via update_task_checked
+        let result = update_task_checked(&conn, &task_id, true).unwrap();
+        assert_eq!(result.note_id, note_id);
+
+        // Re-parse notes.content and verify the taskItem with the matching task_id is now checked
+        let raw_content = get_note_content(&conn, &note_id);
+        let json: Value = serde_json::from_str(&raw_content).unwrap();
+        let mut found = false;
+        let mut checked_in_json = false;
+        fn find_task(node: &Value, task_id: &str, found: &mut bool, checked: &mut bool) {
+            if node.get("type").and_then(|t| t.as_str()) == Some("taskItem") {
+                if node
+                    .get("attrs")
+                    .and_then(|a| a.get("task_id"))
+                    .and_then(|v| v.as_str())
+                    == Some(task_id)
+                {
+                    *found = true;
+                    *checked = node
+                        .get("attrs")
+                        .and_then(|a| a.get("checked"))
+                        .and_then(|c| c.as_bool())
+                        .unwrap_or(false);
+                    return;
+                }
+            }
+            if let Some(children) = node.get("content").and_then(|c| c.as_array()) {
+                for child in children {
+                    find_task(child, task_id, found, checked);
+                }
+            }
+        }
+        find_task(&json, &task_id, &mut found, &mut checked_in_json);
+        assert!(found, "taskItem with task_id {task_id} not found in note content");
+        assert!(checked_in_json, "taskItem checked attr should be true after update_task_checked");
+    }
+
+    #[test]
+    fn test_toggle_in_note_content_syncs_to_note_tasks() {
+        let conn = test_connection();
+        let note_id = create_test_note(&conn);
+
+        // Write initial content with one unchecked task
+        note_service::update_note(&conn, &note_id, "Test Note", TIPTAP_JSON_WITH_TASKS, "").unwrap();
+
+        // Verify initial state
+        let tasks = get_tasks_for_note(&conn, &note_id).unwrap();
+        let grocery_task = tasks.iter().find(|t| t.content == "Buy groceries").unwrap();
+        assert!(!grocery_task.is_checked);
+
+        // Simulate the editor toggling the checkbox: update note with the task now checked
+        let checked_content = TIPTAP_JSON_WITH_TASKS.replace(
+            r#""checked": false"#,
+            r#""checked": true"#,
+        );
+        note_service::update_note(&conn, &note_id, "Test Note", &checked_content, "").unwrap();
+
+        // Verify note_tasks.is_checked was synced
+        let updated_tasks = get_tasks_for_note(&conn, &note_id).unwrap();
+        let grocery_task_updated = updated_tasks
+            .iter()
+            .find(|t| t.content == "Buy groceries")
+            .unwrap();
+        assert!(
+            grocery_task_updated.is_checked,
+            "note_tasks.is_checked should be true after editor toggles task in content"
+        );
     }
 }

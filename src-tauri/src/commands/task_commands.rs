@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::db::tasks::NoteTask;
 use crate::error::AppError;
-use crate::services::task_service::{self, NoteTaskWithNote};
+use crate::services::task_service::{self, NoteTaskWithNote, UpdateTaskCheckedResult};
 use crate::state::DbState;
 
 fn lock_db<'a>(
@@ -31,7 +31,7 @@ pub fn update_task_checked(
     db: State<'_, DbState>,
     task_id: String,
     is_checked: bool,
-) -> Result<(), AppError> {
+) -> Result<UpdateTaskCheckedResult, AppError> {
     let conn = lock_db(&db)?;
     task_service::update_task_checked(&conn, &task_id, is_checked)
 }

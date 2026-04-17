@@ -9,6 +9,8 @@ import styles from "./TaskOverview.module.css";
 
 interface TaskOverviewProps {
   onNavigateToNote: (noteId: string) => void;
+  activeNoteId?: string | null;
+  onNoteContentChanged?: (noteId: string) => void;
 }
 
 type StatusFilter = "All" | "Open" | "Completed";
@@ -52,7 +54,11 @@ function getBadgeColor(groupKey: GroupKey): string {
   return "gray";
 }
 
-export function TaskOverview({ onNavigateToNote }: TaskOverviewProps) {
+export function TaskOverview({
+  onNavigateToNote,
+  activeNoteId,
+  onNoteContentChanged,
+}: TaskOverviewProps) {
   const [tasks, setTasks] = useState<NoteTaskWithNote[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
   const [sortOption, setSortOption] = useState<SortOption>("Due date");
@@ -75,7 +81,12 @@ export function TaskOverview({ onNavigateToNote }: TaskOverviewProps) {
         prev.map((t) => (t.id === task.id ? { ...t, is_checked: newChecked } : t)),
       );
       try {
-        await updateTaskChecked(task.id, newChecked);
+        const result = await updateTaskChecked(task.id, newChecked);
+        // If the affected note is currently open in the editor, signal that its
+        // content has changed so the editor re-fetches and shows the updated state.
+        if (result.note_id && result.note_id === activeNoteId && onNoteContentChanged) {
+          onNoteContentChanged(result.note_id);
+        }
       } catch (err) {
         console.error("Failed to update task:", err);
         // Revert on error
@@ -85,7 +96,7 @@ export function TaskOverview({ onNavigateToNote }: TaskOverviewProps) {
         notifyError("Update failed", "Could not update the task");
       }
     },
-    [],
+    [activeNoteId, onNoteContentChanged],
   );
 
   // Apply status filter

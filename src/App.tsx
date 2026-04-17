@@ -138,7 +138,15 @@ function AppInner() {
 
         <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100dvh" }}>
           {activeView === "tasks" ? (
-            <TaskOverview onNavigateToNote={handleNavigateToNote} />
+            <TaskOverview
+              onNavigateToNote={handleNavigateToNote}
+              activeNoteId={activeNoteId}
+              onNoteContentChanged={(_noteId) => {
+                // The editor is not mounted while the Tasks view is active (activeNoteId is null).
+                // When the user navigates back to the note it will re-fetch from DB automatically.
+                // This callback is a hook for future side-by-side layouts.
+              }}
+            />
           ) : activeView === "settings" ? (
             <Settings />
           ) : (

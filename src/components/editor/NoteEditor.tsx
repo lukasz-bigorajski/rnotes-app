@@ -222,6 +222,12 @@ export function NoteEditor({
                 return { "data-due-date": attributes.dueDate };
               },
             },
+            task_id: {
+              default: null,
+              // task_id is a backend-only stable identifier; not rendered to HTML
+              parseHTML: () => null,
+              renderHTML: () => ({}),
+            },
           };
         },
         addNodeView() {
