@@ -92,6 +92,8 @@ interface NoteEditorProps {
   fontFamily?: string;
   spellCheck?: boolean;
   onNavigateToNote?: (noteId: string) => void;
+  initialFindQuery?: string;
+  onInitialFindQueryConsumed?: () => void;
 }
 
 export function NoteEditor({
@@ -109,12 +111,15 @@ export function NoteEditor({
   fontFamily = "system",
   spellCheck = true,
   onNavigateToNote,
+  initialFindQuery,
+  onInitialFindQueryConsumed,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localTitle, setLocalTitle] = useState(title);
   const titleSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNewNote = title === "Untitled";
-  const [findBarOpen, setFindBarOpen] = useState(false);
+  const [findBarOpen, setFindBarOpen] = useState(!!initialFindQuery);
+  const [activeFindQuery, setActiveFindQuery] = useState<string | undefined>(initialFindQuery);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markdownParserRef = useRef<((text: string) => void) | null>(null);
@@ -131,6 +136,13 @@ export function NoteEditor({
   useEffect(() => {
     setLocalTitle(title);
   }, [title, noteId]);
+
+  // Notify parent that the initial find query has been consumed so it can be cleared
+  useEffect(() => {
+    if (initialFindQuery) {
+      onInitialFindQueryConsumed?.();
+    }
+  }, []); // intentionally runs once on mount only
 
   // Auto-focus the title and select all when a new "Untitled" note is opened
   useEffect(() => {
@@ -688,7 +700,14 @@ export function NoteEditor({
         updatedAt={updatedAt}
       />
       {findBarOpen && (
-        <FindReplaceBar editor={editor} onClose={() => setFindBarOpen(false)} />
+        <FindReplaceBar
+          editor={editor}
+          onClose={() => {
+            setFindBarOpen(false);
+            setActiveFindQuery(undefined);
+          }}
+          initialQuery={activeFindQuery}
+        />
       )}
       <div className={classes.titleRow}>
         <input

@@ -16,10 +16,11 @@ import classes from "./FindReplaceBar.module.css";
 interface FindReplaceBarProps {
   editor: Editor;
   onClose: () => void;
+  initialQuery?: string;
 }
 
-export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
-  const [findValue, setFindValue] = useState("");
+export function FindReplaceBar({ editor, onClose, initialQuery }: FindReplaceBarProps) {
+  const [findValue, setFindValue] = useState(initialQuery ?? "");
   const [replaceValue, setReplaceValue] = useState("");
   const [showReplace, setShowReplace] = useState(false);
   const findInputRef = useRef<HTMLInputElement>(null);
@@ -41,9 +42,29 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
     };
   }, [editor]);
 
+  // If opened with an initialQuery, dispatch it and scroll to first match on mount
+  useEffect(() => {
+    if (!initialQuery) return;
+    const { tr } = editor.state;
+    tr.setMeta(findReplaceKey, { query: initialQuery, currentIndex: 0 });
+    editor.view.dispatch(tr);
+    const el = editor.view.dom.querySelector(".find-replace-current");
+    if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+  }, []); // intentionally runs once on mount only
+
   const pluginState = findReplaceKey.getState(editor.state);
   const matchCount = pluginState?.matches.length ?? 0;
   const currentIndex = pluginState?.currentIndex ?? 0;
+
+  const scrollToMatch = useCallback(
+    (_index: number) => {
+      // After the dispatch in goToNext/goToPrev, ProseMirror updates the DOM
+      // synchronously so .find-replace-current is already on the right element.
+      const el = editor.view.dom.querySelector(".find-replace-current");
+      if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+    },
+    [editor],
+  );
 
   const updateQuery = useCallback(
     (value: string) => {
@@ -51,6 +72,9 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
       const { tr } = editor.state;
       tr.setMeta(findReplaceKey, { query: value, currentIndex: 0 });
       editor.view.dispatch(tr);
+      // ProseMirror updates the DOM synchronously; query the decorated element directly.
+      const el = editor.view.dom.querySelector(".find-replace-current");
+      if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
     },
     [editor],
   );
@@ -61,14 +85,8 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
     const { tr } = editor.state;
     tr.setMeta(findReplaceKey, { currentIndex: next });
     editor.view.dispatch(tr);
-    // Scroll to match
-    const state = findReplaceKey.getState(editor.state);
-    if (state && state.matches[next]) {
-      const { from } = state.matches[next];
-      editor.commands.setTextSelection(from);
-      editor.commands.scrollIntoView();
-    }
-  }, [editor, matchCount, currentIndex]);
+    scrollToMatch(next);
+  }, [editor, matchCount, currentIndex, scrollToMatch]);
 
   const goToPrev = useCallback(() => {
     if (matchCount === 0) return;
@@ -76,13 +94,8 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
     const { tr } = editor.state;
     tr.setMeta(findReplaceKey, { currentIndex: prev });
     editor.view.dispatch(tr);
-    const state = findReplaceKey.getState(editor.state);
-    if (state && state.matches[prev]) {
-      const { from } = state.matches[prev];
-      editor.commands.setTextSelection(from);
-      editor.commands.scrollIntoView();
-    }
-  }, [editor, matchCount, currentIndex]);
+    scrollToMatch(prev);
+  }, [editor, matchCount, currentIndex, scrollToMatch]);
 
   const replaceOne = useCallback(() => {
     if (matchCount === 0) return;

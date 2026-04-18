@@ -31,6 +31,7 @@ function AppInner() {
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
   const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
+  const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
 
   useUpdater();
 
@@ -93,7 +94,8 @@ function AppInner() {
     setActiveView("editor");
   };
 
-  const handleGlobalSearchSelect = (noteId: string) => {
+  const handleGlobalSearchSelect = (noteId: string, query: string) => {
+    setPendingSearchQuery(query || null);
     handleSetActiveNoteId(noteId);
     setGlobalSearchOpened(false);
   };
@@ -162,6 +164,8 @@ function AppInner() {
               flushTitleSaveRef={flushTitleSaveRef}
               refreshActiveNoteRef={refreshActiveNoteRef}
               onNavigateToNote={handleNavigateToNote}
+              initialFindQuery={pendingSearchQuery}
+              onInitialFindQueryConsumed={() => setPendingSearchQuery(null)}
             />
           )}
         </AppShell.Main>

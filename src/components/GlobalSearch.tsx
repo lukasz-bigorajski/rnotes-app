@@ -7,7 +7,7 @@ import type { SearchResult } from "../ipc/notes";
 interface GlobalSearchProps {
   opened: boolean;
   onClose: () => void;
-  onSelectNote: (noteId: string) => void;
+  onSelectNote: (noteId: string, query: string) => void;
 }
 
 export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProps) {
@@ -26,15 +26,6 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
       setIsSearching(false);
       setSelectedIndex(0);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-    }
-  }, [opened]);
-
-  // Focus input when modal opens
-  useEffect(() => {
-    if (opened) {
-      // Small delay to ensure modal is rendered before focusing
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
     }
   }, [opened]);
 
@@ -63,10 +54,10 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
 
   const handleSelect = useCallback(
     (id: string) => {
-      onSelectNote(id);
+      onSelectNote(id, query);
       onClose();
     },
-    [onSelectNote, onClose],
+    [onSelectNote, onClose, query],
   );
 
   const handleKeyDown = useCallback(
@@ -102,6 +93,7 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
           onKeyDown={handleKeyDown}
           size="md"
           data-testid="global-search-input"
+          data-autofocus
         />
 
         {isSearching && (

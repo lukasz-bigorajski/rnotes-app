@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconNotes } from "@tabler/icons-react";
@@ -16,6 +16,8 @@ interface ContentAreaProps {
   flushTitleSaveRef?: MutableRefObject<(() => void) | null>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   onNavigateToNote?: (noteId: string) => void;
+  initialFindQuery?: string | null;
+  onInitialFindQueryConsumed?: () => void;
 }
 
 export function ContentArea({
@@ -25,8 +27,19 @@ export function ContentArea({
   flushTitleSaveRef,
   refreshActiveNoteRef,
   onNavigateToNote,
+  initialFindQuery,
+  onInitialFindQueryConsumed,
 }: ContentAreaProps) {
   const { note, loading, saveNote, updateTitle, refreshNote } = useActiveNote(activeNoteId);
+
+  // Capture initialFindQuery in a ref so it survives the loading→loaded transition.
+  // NoteEditor unmounts during loading (ContentArea shows a Loader), so we must
+  // preserve the query until loading completes and NoteEditor actually mounts.
+  const capturedFindQueryRef = useRef<string | undefined>(undefined);
+  // When a new initialFindQuery arrives (from global search), capture it immediately.
+  if (initialFindQuery) {
+    capturedFindQueryRef.current = initialFindQuery;
+  }
 
   useEffect(() => {
     if (refreshActiveNoteRef) refreshActiveNoteRef.current = refreshNote;
@@ -76,13 +89,18 @@ export function ContentArea({
     );
   }
 
-  if (loading) {
+  if (loading || !note) {
     return (
       <Center style={{ flex: 1 }}>
         <Loader size="sm" />
       </Center>
     );
   }
+
+  // Take the captured query and clear the ref so it's only used once.
+  // This runs only when NoteEditor actually renders (loading is false).
+  const findQueryForEditor = capturedFindQueryRef.current;
+  capturedFindQueryRef.current = undefined;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -102,6 +120,8 @@ export function ContentArea({
         fontFamily={config.font_family}
         spellCheck={config.spell_check}
         onNavigateToNote={onNavigateToNote}
+        initialFindQuery={findQueryForEditor}
+        onInitialFindQueryConsumed={onInitialFindQueryConsumed}
       />
     </div>
   );
