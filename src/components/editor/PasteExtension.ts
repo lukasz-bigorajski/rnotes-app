@@ -59,11 +59,17 @@ export const PasteExtension = Extension.create<PasteExtensionOptions>({
             const clipboard = event.clipboardData;
             if (!clipboard) return false;
 
-            // Check if we have plain text in the clipboard
             const text = clipboard.getData("text/plain");
             if (!text) return false;
 
-            // Detect if it's markdown
+            const { $from } = _view.state.selection;
+            const inCodeBlock = $from.parent.type.name === "codeBlock";
+            if (inCodeBlock) {
+              event.preventDefault();
+              _view.dispatch(_view.state.tr.insertText(text));
+              return true;
+            }
+
             if (isMarkdownContent(text)) {
               // Prevent default paste handling
               event.preventDefault();
