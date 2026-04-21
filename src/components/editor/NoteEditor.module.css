@@ -431,20 +431,21 @@
 /* ── Tables ── */
 .editorContent :global(.tiptap .tableWrapper) {
   overflow-x: auto;
-  margin: 12px 0;
+  margin: 6px 0;
 }
 
 .editorContent :global(.tiptap table) {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
+  font-size: 0.875em;
 }
 
 .editorContent :global(.tiptap table td),
 .editorContent :global(.tiptap table th) {
   border: 1px solid var(--mantine-color-default-border, #ced4da);
-  padding: 4px 8px;
-  min-width: 100px;
+  padding: 2px 6px;
+  min-width: 60px;
   vertical-align: top;
   position: relative;
   box-sizing: border-box;
@@ -453,6 +454,12 @@
 .editorContent :global(.tiptap table th) {
   font-weight: 600;
   text-align: left;
+}
+
+.editorContent :global(.tiptap table td p),
+.editorContent :global(.tiptap table th p) {
+  margin: 0;
+  line-height: 1.4;
 }
 
 .editorContent :global(.tiptap table .selectedCell::after) {
@@ -648,7 +655,7 @@
 .backToTopBtn {
   position: sticky;
   bottom: 16px;
-  float: right;
+  align-self: flex-end;
   margin-right: 16px;
   z-index: 10;
 }
