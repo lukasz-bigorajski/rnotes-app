@@ -643,3 +643,12 @@
   color: var(--mantine-color-red-dark);
   border-color: var(--mantine-color-red-border);
 }
+
+/* ── Back-to-top button ── */
+.backToTopBtn {
+  position: sticky;
+  bottom: 16px;
+  float: right;
+  margin-right: 16px;
+  z-index: 10;
+}

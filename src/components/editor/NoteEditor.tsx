@@ -38,7 +38,8 @@ import {
   openLink,
 } from "../../utils/linkHandler";
 import { modals } from "@mantine/modals";
-import { Text, Checkbox } from "@mantine/core";
+import { Text, Checkbox, ActionIcon } from "@mantine/core";
+import { IconArrowUp } from "@tabler/icons-react";
 
 import classes from "./NoteEditor.module.css";
 
@@ -116,6 +117,8 @@ export function NoteEditor({
   onInitialFindQueryConsumed,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const [localTitle, setLocalTitle] = useState(title);
   const titleSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNewNote = title === "Untitled";
@@ -465,6 +468,17 @@ export function NoteEditor({
     };
   }, [flushTitleSaveRef]);
 
+  // Back-to-top: show button when scrolled more than 400px inside the editor wrapper
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      setShowBackToTop(container.scrollTop > 400);
+    };
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -705,6 +719,7 @@ export function NoteEditor({
 
   return (
     <div
+      ref={scrollContainerRef}
       className={classes.editorWrapper}
       style={
         {
@@ -764,6 +779,19 @@ export function NoteEditor({
         spellCheck={spellCheck}
       />
       <TableMenu editor={editor} />
+      {showBackToTop && (
+        <ActionIcon
+          variant="filled"
+          size="md"
+          aria-label="Back to top"
+          className={classes.backToTopBtn}
+          onClick={() =>
+            scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+          }
+        >
+          <IconArrowUp size={16} />
+        </ActionIcon>
+      )}
     </div>
   );
 }
