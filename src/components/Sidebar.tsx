@@ -50,6 +50,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [activeTab, setActiveTab] = useState<SidebarTab>("notes");
+  const [pendingRenameId, setPendingRenameId] = useState<string | null>(null);
   const [archivedCount, setArchivedCount] = useState(0);
 
   const storedExpandedIds = (() => {
@@ -117,6 +118,7 @@ export function Sidebar({
   const handleCreateNote = async () => {
     try {
       const note = await createNote({ title: "Untitled", isFolder: false });
+      setPendingRenameId(note.id);
       loadNotes();
       setActiveNoteId(note.id);
     } catch (err) {
@@ -127,7 +129,8 @@ export function Sidebar({
 
   const handleCreateFolder = async () => {
     try {
-      await createNote({ title: "Untitled Folder", isFolder: true });
+      const folder = await createNote({ title: "Untitled Folder", isFolder: true });
+      setPendingRenameId(folder.id);
       loadNotes();
     } catch (err) {
       console.error("Failed to create folder:", err);
@@ -236,6 +239,8 @@ export function Sidebar({
                   loadArchivedCount();
                 }}
                 refreshActiveNoteRef={refreshActiveNoteRef}
+                pendingRenameId={pendingRenameId}
+                onPendingRenameConsumed={() => setPendingRenameId(null)}
               />
             )}
           </>

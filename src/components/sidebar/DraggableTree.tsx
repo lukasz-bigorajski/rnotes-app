@@ -23,6 +23,8 @@ interface DraggableTreeProps {
   onNotesChanged: () => void;
   tree: ReturnType<typeof useTree>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
+  pendingRenameId?: string | null;
+  onPendingRenameConsumed?: () => void;
 }
 
 export function DraggableTree({
@@ -32,6 +34,8 @@ export function DraggableTree({
   onNotesChanged,
   tree,
   refreshActiveNoteRef,
+  pendingRenameId,
+  onPendingRenameConsumed,
 }: DraggableTreeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -179,6 +183,8 @@ export function DraggableTree({
         onNotesChanged={onNotesChanged}
         tree={tree}
         refreshActiveNoteRef={refreshActiveNoteRef}
+        pendingRenameId={pendingRenameId}
+        onPendingRenameConsumed={onPendingRenameConsumed}
       />
 
       <DragOverlay

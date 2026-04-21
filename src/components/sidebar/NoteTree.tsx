@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MutableRefObject } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
@@ -22,6 +22,8 @@ interface NoteTreeProps {
   onNotesChanged: () => void;
   tree: ReturnType<typeof useTree>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
+  pendingRenameId?: string | null;
+  onPendingRenameConsumed?: () => void;
 }
 
 /**
@@ -195,10 +197,21 @@ export function NoteTree({
   onNotesChanged,
   tree,
   refreshActiveNoteRef,
+  pendingRenameId,
+  onPendingRenameConsumed,
 }: NoteTreeProps) {
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [isRenamingLoading, setIsRenamingLoading] = useState(false);
+
+  // Auto-enter rename mode once the newly created note appears in the tree
+  useEffect(() => {
+    if (!pendingRenameId) return;
+    if (notes.some((n) => n.id === pendingRenameId)) {
+      setRenamingNodeId(pendingRenameId);
+      onPendingRenameConsumed?.();
+    }
+  }, [pendingRenameId, notes, onPendingRenameConsumed]);
 
   const treeData = useMemo<TreeNodeData[]>(() => buildTree(notes), [notes]);
 
