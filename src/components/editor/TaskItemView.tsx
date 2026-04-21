@@ -155,6 +155,7 @@ export function TaskItemView({ node, updateAttributes }: NodeViewProps) {
           position="bottom-end"
           withinPortal
           closeOnClickOutside
+          middlewares={{ shift: false, flip: false }}
         >
           <Popover.Target>
             <ActionIcon
