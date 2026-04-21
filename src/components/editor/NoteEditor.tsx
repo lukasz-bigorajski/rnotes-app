@@ -20,6 +20,7 @@ import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { TableMenu } from "./TableMenu";
 import { createFindReplacePlugin } from "./findReplacePlugin";
+import { createCodeBlockAutodetectPlugin } from "./codeBlockAutodetectPlugin";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import type { SaveStatus } from "../../hooks/useAutoSave";
 import { SaveStatusIndicator } from "./SaveStatusIndicator";
@@ -169,6 +170,9 @@ export function NoteEditor({
       CodeBlockLowlight.extend({
         addNodeView() {
           return ReactNodeViewRenderer(CodeBlockNodeView);
+        },
+        addProseMirrorPlugins() {
+          return [...(this.parent?.() ?? []), createCodeBlockAutodetectPlugin(lowlight)];
         },
       }).configure({
         lowlight,
