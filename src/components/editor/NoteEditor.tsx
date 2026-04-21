@@ -555,7 +555,7 @@ export function NoteEditor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Set up context menu for "Paste as plain text" option
+  // Set up context menu with copy/paste options
   useEffect(() => {
     const editorContent = document.querySelector(`.${classes.editorContent}`);
     if (!editorContent) return;
@@ -564,14 +564,17 @@ export function NoteEditor({
       const e = event as MouseEvent;
       e.preventDefault();
 
-      // Get clipboard text
-      navigator.clipboard
-        .readText()
-        .then((text: string) => {
-          // Create custom context menu
-          const menu = document.createElement("div");
-          menu.className = "custom-context-menu";
-          menu.style.cssText = `
+      // Capture selection info at the time of right-click
+      const currentEditor = editorRef.current;
+      const selection = currentEditor?.state.selection;
+      const hasSelection = selection ? !selection.empty : false;
+      const { from, to } = selection ?? { from: 0, to: 0 };
+
+      const buildMenu = (clipboardText: string) => {
+        // Create custom context menu
+        const menu = document.createElement("div");
+        menu.className = "custom-context-menu";
+        menu.style.cssText = `
             position: fixed;
             top: ${e.clientY}px;
             left: ${e.clientX}px;
@@ -584,25 +587,15 @@ export function NoteEditor({
             overflow: hidden;
           `;
 
-          // Menu items
-          const items = [
-            { label: "Cut", action: "cut", enabled: document.queryCommandSupported("cut") },
-            {
-              label: "Copy",
-              action: "copy",
-              enabled: document.queryCommandSupported("copy"),
-            },
-            {
-              label: "Paste",
-              action: "paste",
-              enabled: text.length > 0,
-            },
-            {
-              label: "Paste as plain text",
-              action: "pasteAsPlainText",
-              enabled: text.length > 0,
-            },
-          ];
+        // Menu items
+        const items = [
+          { label: "Cut", action: "cut", enabled: hasSelection },
+          { label: "Copy", action: "copy", enabled: hasSelection },
+          { label: "Copy raw", action: "copyRaw", enabled: hasSelection },
+          { label: "Copy as Markdown", action: "copyAsMarkdown", enabled: hasSelection },
+          { label: "Paste", action: "paste", enabled: true },
+          { label: "Paste raw", action: "pasteRaw", enabled: true },
+        ];
 
           items.forEach((item) => {
             const button = document.createElement("button");
@@ -614,7 +607,7 @@ export function NoteEditor({
               background: none;
               border: none;
               cursor: ${item.enabled ? "pointer" : "not-allowed"};
-              color: ${item.enabled ? "inherit" : "#ccc"};
+              color: ${item.enabled ? "#1a1a1a" : "#aaa"};
               font-size: 14px;
               transition: background-color 0.1s;
             `;
@@ -631,15 +624,35 @@ export function NoteEditor({
                   document.execCommand("cut");
                 } else if (item.action === "copy") {
                   document.execCommand("copy");
+                } else if (item.action === "copyRaw") {
+                  const ed = editorRef.current;
+                  if (ed) {
+                    const rawText = ed.state.doc.textBetween(from, to, "\n");
+                    navigator.clipboard.writeText(rawText).catch((err) => {
+                      console.error("Failed to write clipboard:", err);
+                    });
+                  }
+                } else if (item.action === "copyAsMarkdown") {
+                  const ed = editorRef.current;
+                  if (ed) {
+                    const subDoc = ed.state.doc.cut(from, to);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const markdown = (ed.storage as any).markdown.serializer.serialize(subDoc);
+                    navigator.clipboard.writeText(markdown).catch((err) => {
+                      console.error("Failed to write clipboard:", err);
+                    });
+                  }
                 } else if (item.action === "paste") {
                   document.execCommand("paste");
-                } else if (item.action === "pasteAsPlainText") {
-                  const currentEditor = editorRef.current;
-                  if (currentEditor) {
-                    currentEditor.commands.insertContent({
-                      type: "text",
-                      text,
-                    });
+                } else if (item.action === "pasteRaw") {
+                  const ed = editorRef.current;
+                  if (ed) {
+                    if (clipboardText) {
+                      ed.commands.insertContent({ type: "text", text: clipboardText });
+                    } else {
+                      // Fall back to system paste when clipboard API was unavailable
+                      document.execCommand("paste");
+                    }
                   }
                 }
                 menu.remove();
@@ -658,18 +671,22 @@ export function NoteEditor({
             document.removeEventListener("keydown", handleEscapeKey);
           };
 
-          const handleEscapeKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
+          const handleEscapeKey = (escEvent: KeyboardEvent) => {
+            if (escEvent.key === "Escape") {
               closeMenu();
             }
           };
 
           document.addEventListener("click", closeMenu);
           document.addEventListener("keydown", handleEscapeKey);
-        })
-        .catch((err) => {
-          console.error("Failed to read clipboard:", err);
-        });
+        return menu;
+      };
+
+      // Try to read clipboard text but always show the menu regardless
+      navigator.clipboard
+        .readText()
+        .then((text: string) => buildMenu(text))
+        .catch(() => buildMenu(""));
     };
 
     editorContent.addEventListener("contextmenu", handleContextMenu);
