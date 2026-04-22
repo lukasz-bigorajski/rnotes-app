@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rusqlite::Connection;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -233,6 +235,89 @@ pub fn copy_note(conn: &Connection, source_id: &str) -> AppResult<Note> {
     Ok(new_note)
 }
 
+/// Permanently delete a note (and its entire subtree if it is a folder).
+///
+/// Prerequisites: the note must already be soft-deleted (`deleted_at IS NOT NULL`).
+/// Rejects live notes with `AppError::InvalidState`.
+///
+/// The function:
+/// 1. Collects all descendant IDs (including the root) that are soft-deleted.
+/// 2. Deletes rows from `notes_fts`, `note_tasks`, `assets`, `notes` for each.
+///    Foreign-key cascades are not relied upon (in-memory test connections have FK off).
+/// 3. Removes asset files from disk: `<assets_dir>/<note_id>/`.
+///    File deletion is intentionally done **after** the DB transaction commits so that
+///    a DB rollback cannot leave dangling DB rows while files are already gone.
+pub fn hard_delete_note(conn: &Connection, id: &str, assets_dir: &Path) -> AppResult<()> {
+    // Fetch the root note (including soft-deleted).
+    let root = notes::get_by_id_including_deleted(conn, id)?;
+
+    // Reject if not soft-deleted.
+    if root.deleted_at.is_none() {
+        return Err(AppError::InvalidState(format!(
+            "note {id} is not in the archive; soft-delete it first"
+        )));
+    }
+
+    // Collect all IDs to delete (BFS/DFS over the subtree, including soft-deleted children).
+    let all_ids = collect_subtree_ids(conn, id)?;
+
+    // Gather asset filenames before deleting DB rows (so we know what to unlink on disk).
+    let note_ids_with_assets: Vec<String> = all_ids.clone();
+
+    // Delete everything in a single transaction.
+    {
+        let tx = conn.unchecked_transaction()?;
+        for nid in &all_ids {
+            // 1. Remove from FTS index.
+            tx.execute("DELETE FROM notes_fts WHERE note_id = ?1", rusqlite::params![nid])?;
+            // 2. Remove tasks.
+            tx.execute("DELETE FROM note_tasks WHERE note_id = ?1", rusqlite::params![nid])?;
+            // 3. Remove asset rows.
+            tx.execute("DELETE FROM assets WHERE note_id = ?1", rusqlite::params![nid])?;
+        }
+        // 4. Delete notes from leaf to root so parent_id references are gone before the parent.
+        //    Because all_ids is root-first from the BFS, reverse it.
+        for nid in all_ids.iter().rev() {
+            tx.execute("DELETE FROM notes WHERE id = ?1", rusqlite::params![nid])?;
+        }
+        tx.commit()?;
+    }
+
+    // Remove asset directories from disk (best-effort; ignore missing dirs).
+    for nid in &note_ids_with_assets {
+        let note_assets_dir = assets_dir.join(nid);
+        if note_assets_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&note_assets_dir) {
+                eprintln!("hard_delete_note: failed to remove asset dir {:?}: {e}", note_assets_dir);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Collect the given note's ID plus all descendant IDs (soft-deleted or not),
+/// using breadth-first traversal. The root comes first.
+fn collect_subtree_ids(conn: &Connection, root_id: &str) -> AppResult<Vec<String>> {
+    let mut ids = Vec::new();
+    let mut queue = vec![root_id.to_string()];
+
+    while let Some(current) = queue.first().cloned() {
+        queue.remove(0);
+        ids.push(current.clone());
+
+        // Find all direct children (including soft-deleted).
+        let mut stmt =
+            conn.prepare("SELECT id FROM notes WHERE parent_id = ?1")?;
+        let children: Vec<String> = stmt
+            .query_map(rusqlite::params![&current], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        queue.extend(children);
+    }
+
+    Ok(ids)
+}
+
 pub fn global_replace(
     conn: &Connection,
     note_id: &str,
@@ -277,6 +362,8 @@ mod tests {
     use super::*;
     use crate::db::test_helpers::test_connection;
     use crate::error::AppError;
+    #[allow(unused_imports)]
+    use tempfile;
 
     fn create_req(title: &str, is_folder: bool) -> CreateNoteRequest {
         CreateNoteRequest {
@@ -510,6 +597,110 @@ mod tests {
         let conn = test_connection();
         let result = copy_note(&conn, "nonexistent-id");
         assert!(result.is_err());
+    }
+
+    // ── hard_delete_note tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_hard_delete_removes_from_db_and_assets() {
+        let conn = test_connection();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let assets_dir = tmp.path().to_path_buf();
+
+        // Create and soft-delete a note.
+        let note = create_note(&conn, create_req("To Hard Delete", false)).unwrap();
+        delete_note(&conn, &note.id).unwrap();
+
+        // Create a fake asset directory on disk.
+        let note_assets = assets_dir.join(&note.id);
+        std::fs::create_dir_all(&note_assets).unwrap();
+        std::fs::write(note_assets.join("image.png"), b"fake png data").unwrap();
+
+        // Hard-delete.
+        hard_delete_note(&conn, &note.id, &assets_dir).unwrap();
+
+        // Row must be gone.
+        let result = conn.query_row(
+            "SELECT COUNT(*) FROM notes WHERE id = ?1",
+            rusqlite::params![note.id],
+            |row| row.get::<_, i64>(0),
+        ).unwrap();
+        assert_eq!(result, 0);
+
+        // Asset dir must be gone.
+        assert!(!assets_dir.join(&note.id).exists());
+    }
+
+    #[test]
+    fn test_hard_delete_rejects_live_note() {
+        let conn = test_connection();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let assets_dir = tmp.path().to_path_buf();
+
+        // Create a note but do NOT soft-delete it.
+        let note = create_note(&conn, create_req("Live Note", false)).unwrap();
+
+        let result = hard_delete_note(&conn, &note.id, &assets_dir);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::InvalidState(msg) => assert!(msg.contains(&note.id)),
+            other => panic!("Expected InvalidState, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_hard_delete_cascades_tasks_and_assets() {
+        let conn = test_connection();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let assets_dir = tmp.path().to_path_buf();
+
+        // Create a note.
+        let note = create_note(&conn, create_req("With Tasks And Assets", false)).unwrap();
+
+        // Manually insert a task row.
+        let task_id = uuid::Uuid::now_v7().to_string();
+        let now = 1_000_000i64;
+        conn.execute(
+            "INSERT INTO note_tasks (id, note_id, content, is_checked, created_at, updated_at)
+             VALUES (?1, ?2, 'task content', 0, ?3, ?3)",
+            rusqlite::params![task_id, note.id, now],
+        ).unwrap();
+
+        // Manually insert an asset row.
+        let asset_id = uuid::Uuid::now_v7().to_string();
+        conn.execute(
+            "INSERT INTO assets (id, note_id, filename, mime_type, size_bytes, created_at)
+             VALUES (?1, ?2, 'img.png', 'image/png', 100, ?3)",
+            rusqlite::params![asset_id, note.id, now],
+        ).unwrap();
+
+        // Soft-delete the note, then hard-delete.
+        delete_note(&conn, &note.id).unwrap();
+        hard_delete_note(&conn, &note.id, &assets_dir).unwrap();
+
+        // Task must be gone.
+        let task_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM note_tasks WHERE note_id = ?1",
+            rusqlite::params![note.id],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(task_count, 0);
+
+        // Asset row must be gone.
+        let asset_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM assets WHERE note_id = ?1",
+            rusqlite::params![note.id],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(asset_count, 0);
+
+        // Note itself must be gone.
+        let note_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM notes WHERE id = ?1",
+            rusqlite::params![note.id],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(note_count, 0);
     }
 
     #[test]

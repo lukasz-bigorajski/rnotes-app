@@ -30,3 +30,22 @@ export function getAppHealth(): Promise<AppHealth> {
 export function createBackup(): Promise<BackupInfo> {
   return invoke("create_backup");
 }
+
+export type ImportMode = "replace" | "merge";
+
+/**
+ * Export all notes, tasks and assets to the given absolute file path.
+ * The path should end with `.rnotes`.
+ */
+export function exportAll(path: string): Promise<void> {
+  return invoke("export_all", { path });
+}
+
+/**
+ * Import data from a `.rnotes` archive.
+ * `mode` = "replace" wipes the DB before importing;
+ * `mode` = "merge"   skips rows that conflict with existing IDs.
+ */
+export function importAll(path: string, mode: ImportMode): Promise<void> {
+  return invoke("import_all", { path, mode });
+}

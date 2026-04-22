@@ -10,6 +10,12 @@ pub enum AppError {
     NotFound(String),
     #[error("config error: {0}")]
     Config(String),
+    #[error("invalid state: {0}")]
+    InvalidState(String),
+    #[error("zip error: {0}")]
+    Zip(String),
+    #[error("json error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 impl Serialize for AppError {

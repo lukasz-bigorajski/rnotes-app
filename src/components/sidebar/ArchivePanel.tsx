@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Stack, Text, Group, Button } from "@mantine/core";
-import { IconRestore, IconArchive } from "@tabler/icons-react";
-import { listNotes, restoreNote } from "../../ipc/notes";
+import { modals } from "@mantine/modals";
+import { IconRestore, IconArchive, IconTrash } from "@tabler/icons-react";
+import { listNotes, restoreNote, hardDeleteNote } from "../../ipc/notes";
 import type { NoteRow } from "../../ipc/notes";
 
 interface ArchivePanelProps {
@@ -12,6 +13,7 @@ export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
   const [archivedNotes, setArchivedNotes] = useState<NoteRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const loadArchivedNotes = async () => {
     setIsLoading(true);
@@ -41,6 +43,31 @@ export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
     } finally {
       setRestoring(null);
     }
+  };
+
+  const handleDeleteForever = (note: NoteRow) => {
+    modals.openConfirmModal({
+      title: "Delete forever?",
+      children: (
+        <Text size="sm">
+          &ldquo;{note.title}&rdquo; will be permanently deleted and cannot be recovered.
+          {note.is_folder ? " All notes inside this folder will also be deleted." : ""}
+        </Text>
+      ),
+      labels: { confirm: "Delete forever", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        setDeleting(note.id);
+        try {
+          await hardDeleteNote(note.id);
+          await loadArchivedNotes();
+        } catch (err) {
+          console.error("Failed to permanently delete note:", err);
+        } finally {
+          setDeleting(null);
+        }
+      },
+    });
   };
 
   const formatDeletedTime = (deletedAtMs: number): string => {
@@ -111,15 +138,27 @@ export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
                 {note.deleted_at && formatDeletedTime(note.deleted_at)}
               </Text>
             </Stack>
-            <Button
-              size="compact-xs"
-              variant="light"
-              leftSection={<IconRestore size={12} />}
-              onClick={() => handleRestore(note.id)}
-              loading={restoring === note.id}
-            >
-              Restore
-            </Button>
+            <Group gap="xs">
+              <Button
+                size="compact-xs"
+                variant="light"
+                leftSection={<IconRestore size={12} />}
+                onClick={() => handleRestore(note.id)}
+                loading={restoring === note.id}
+              >
+                Restore
+              </Button>
+              <Button
+                size="compact-xs"
+                variant="light"
+                color="red"
+                leftSection={<IconTrash size={12} />}
+                onClick={() => handleDeleteForever(note)}
+                loading={deleting === note.id}
+              >
+                Delete forever
+              </Button>
+            </Group>
           </Group>
         ))}
       </Stack>

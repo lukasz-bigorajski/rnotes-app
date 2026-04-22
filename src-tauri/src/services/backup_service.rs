@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 
 const MAX_BACKUPS: usize = 5;
 const BACKUP_PREFIX: &str = "rnotes_backup_";

@@ -113,3 +113,7 @@ export function performGlobalReplace(
 ): Promise<void> {
   return invoke("global_replace", { noteId, findText, replaceText });
 }
+
+export function hardDeleteNote(id: string): Promise<void> {
+  return invoke("hard_delete_note", { id });
+}

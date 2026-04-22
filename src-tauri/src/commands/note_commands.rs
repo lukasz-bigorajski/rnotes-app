@@ -1,10 +1,11 @@
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::db::fts;
 use crate::db::fts::SearchResult;
 use crate::db::notes::{Note, NoteRow};
 use crate::error::AppError;
 use crate::services::note_service::{self, CreateNoteRequest};
+use crate::services::config_service;
 use crate::state::DbState;
 
 fn lock_db<'a>(
@@ -109,6 +110,18 @@ pub fn search_notes(
 pub fn copy_note(state: State<'_, DbState>, id: String) -> Result<Note, AppError> {
     let conn = lock_db(&state)?;
     note_service::copy_note(&conn, &id)
+}
+
+#[tauri::command]
+pub fn hard_delete_note(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    id: String,
+) -> Result<(), AppError> {
+    let conn = lock_db(&state)?;
+    let data_dir = config_service::resolve_data_dir(&app)?;
+    let assets_dir = data_dir.join("assets");
+    note_service::hard_delete_note(&conn, &id, &assets_dir)
 }
 
 #[tauri::command]

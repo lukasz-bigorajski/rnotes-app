@@ -12,6 +12,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
@@ -139,6 +140,7 @@ pub fn run() {
             commands::note_commands::search_notes,
             commands::note_commands::copy_note,
             commands::note_commands::global_replace,
+            commands::note_commands::hard_delete_note,
             commands::config_commands::get_config,
             commands::config_commands::get_user_config,
             commands::config_commands::update_user_config,
@@ -151,6 +153,8 @@ pub fn run() {
             commands::backup::list_backups,
             commands::backup::get_app_health,
             commands::backup::restore_from_backup,
+            commands::export_commands::export_all,
+            commands::export_commands::import_all,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

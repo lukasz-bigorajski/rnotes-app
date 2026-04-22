@@ -10,10 +10,15 @@ import {
   Switch,
   Divider,
   ScrollArea,
+  Button,
+  Notification,
 } from "@mantine/core";
 import { useMantineColorScheme } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useUserConfig } from "../context/UserConfigContext";
 import type { UserConfig } from "../ipc/config";
+import { exportAll, importAll } from "../ipc/backup";
 import classes from "./Settings.module.css";
 
 const FONT_FAMILY_OPTIONS = [
@@ -29,6 +34,8 @@ export function Settings() {
   const [savedVisible, setSavedVisible] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dataMessage, setDataMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [dataLoading, setDataLoading] = useState<"export" | "import" | null>(null);
 
   const showSaved = useCallback(() => {
     setSavedVisible(true);
@@ -55,6 +62,61 @@ export function Settings() {
     },
     [setColorScheme, handleChange],
   );
+
+  const handleExport = useCallback(async () => {
+    const path = await saveDialog({
+      title: "Export notes",
+      defaultPath: "notes-export.rnotes",
+      filters: [{ name: "RNotes archive", extensions: ["rnotes"] }],
+    });
+    if (!path) return;
+
+    setDataLoading("export");
+    setDataMessage(null);
+    try {
+      await exportAll(path);
+      setDataMessage({ text: "Export complete.", error: false });
+    } catch (err) {
+      setDataMessage({ text: `Export failed: ${err}`, error: true });
+    } finally {
+      setDataLoading(null);
+    }
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    const path = await openDialog({
+      title: "Import notes",
+      filters: [{ name: "RNotes archive", extensions: ["rnotes"] }],
+      multiple: false,
+    });
+    if (!path) return;
+
+    const filePath = typeof path === "string" ? path : path[0];
+
+    modals.openConfirmModal({
+      title: "Replace all data?",
+      children: (
+        <Text size="sm">
+          This will <strong>permanently wipe</strong> all your current notes, tasks and assets, then
+          restore everything from the selected archive. This action cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: "Replace all data", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        setDataLoading("import");
+        setDataMessage(null);
+        try {
+          await importAll(filePath, "replace");
+          setDataMessage({ text: "Import complete. Please restart the app.", error: false });
+        } catch (err) {
+          setDataMessage({ text: `Import failed: ${err}`, error: true });
+        } finally {
+          setDataLoading(null);
+        }
+      },
+    });
+  }, []);
 
   return (
     <ScrollArea style={{ flex: 1 }} h="100%">
@@ -172,6 +234,44 @@ export function Settings() {
                 />
               </div>
             </Group>
+          </Stack>
+
+          <Divider />
+
+          {/* Data — export / import */}
+          <Stack gap="xs" className={classes.section}>
+            <Text fw={600} size="sm">
+              Data
+            </Text>
+            <Text size="xs" c="dimmed">
+              Export all notes, tasks and assets to a portable archive, or restore from one.
+            </Text>
+            <Group>
+              <Button
+                variant="light"
+                loading={dataLoading === "export"}
+                onClick={handleExport}
+              >
+                Export all…
+              </Button>
+              <Button
+                variant="light"
+                color="red"
+                loading={dataLoading === "import"}
+                onClick={handleImport}
+              >
+                Import all…
+              </Button>
+            </Group>
+            {dataMessage && (
+              <Notification
+                color={dataMessage.error ? "red" : "teal"}
+                onClose={() => setDataMessage(null)}
+                mt="xs"
+              >
+                {dataMessage.text}
+              </Notification>
+            )}
           </Stack>
         </Stack>
       </div>
