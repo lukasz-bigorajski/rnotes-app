@@ -21,6 +21,8 @@ import { useUserConfig } from "../context/UserConfigContext";
 import type { UserConfig } from "../ipc/config";
 import { exportAll, importAll } from "../ipc/backup";
 import type { ImportMode } from "../ipc/backup";
+import { listNotes } from "../ipc/notes";
+import type { NoteRow } from "../ipc/notes";
 import classes from "./Settings.module.css";
 
 const FONT_FAMILY_OPTIONS = [
@@ -83,6 +85,94 @@ export function Settings() {
     } finally {
       setDataLoading(null);
     }
+  }, []);
+
+  const handleExportFolder = useCallback(async () => {
+    let folders: NoteRow[];
+    try {
+      const all = await listNotes();
+      folders = all.filter((n) => n.is_folder && n.deleted_at === null);
+    } catch (err) {
+      setDataMessage({ text: `Could not load folders: ${err}`, error: true });
+      return;
+    }
+
+    if (folders.length === 0) {
+      setDataMessage({ text: "No folders found to export.", error: false });
+      return;
+    }
+
+    function FolderPickerBody({
+      folders,
+      onConfirm,
+      onClose,
+    }: {
+      folders: NoteRow[];
+      onConfirm: (folder: NoteRow) => void;
+      onClose: () => void;
+    }) {
+      const [selectedId, setSelectedId] = useState<string | null>(folders[0]?.id ?? null);
+      const selectData = folders.map((f) => ({ value: f.id, label: f.title }));
+      const selectedFolder = folders.find((f) => f.id === selectedId) ?? null;
+      return (
+        <Stack gap="md">
+          <Text size="sm">Choose a folder to export (includes all nested notes):</Text>
+          <Select
+            data={selectData}
+            value={selectedId}
+            onChange={setSelectedId}
+            searchable
+            placeholder="Select a folder"
+          />
+          <Group justify="flex-end" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!selectedFolder}
+              onClick={() => {
+                if (selectedFolder) onConfirm(selectedFolder);
+              }}
+            >
+              Choose destination…
+            </Button>
+          </Group>
+        </Stack>
+      );
+    }
+
+    modals.open({
+      title: "Export folder",
+      children: (
+        <FolderPickerBody
+          folders={folders}
+          onConfirm={(folder) => {
+            modals.closeAll();
+            const safeName = folder.title.replace(/[^a-zA-Z0-9_-]/g, "_");
+            saveDialog({
+              title: "Export folder",
+              defaultPath: `${safeName}-export.rnotes`,
+              filters: [{ name: "RNotes archive", extensions: ["rnotes"] }],
+            }).then((path) => {
+              if (!path) return;
+              setDataLoading("export");
+              setDataMessage(null);
+              exportAll(path, folder.id)
+                .then(() => {
+                  setDataMessage({ text: `Folder "${folder.title}" exported.`, error: false });
+                })
+                .catch((err) => {
+                  setDataMessage({ text: `Export failed: ${err}`, error: true });
+                })
+                .finally(() => {
+                  setDataLoading(null);
+                });
+            });
+          }}
+          onClose={() => modals.closeAll()}
+        />
+      ),
+    });
   }, []);
 
   const handleImport = useCallback(async () => {
@@ -318,6 +408,13 @@ export function Settings() {
                 onClick={handleExport}
               >
                 Export all…
+              </Button>
+              <Button
+                variant="light"
+                loading={dataLoading === "export"}
+                onClick={handleExportFolder}
+              >
+                Export folder…
               </Button>
               <Button
                 variant="light"

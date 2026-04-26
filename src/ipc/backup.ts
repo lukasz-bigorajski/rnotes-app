@@ -34,11 +34,14 @@ export function createBackup(): Promise<BackupInfo> {
 export type ImportMode = "replace" | "add_missing" | "merge";
 
 /**
- * Export all notes, tasks and assets to the given absolute file path.
+ * Export notes, tasks and assets to the given absolute file path.
  * The path should end with `.rnotes`.
+ *
+ * When `rootFolderId` is provided, only that folder and all its descendants
+ * are exported. When omitted, the entire database is exported.
  */
-export function exportAll(path: string): Promise<void> {
-  return invoke("export_all", { path });
+export function exportAll(path: string, rootFolderId?: string): Promise<void> {
+  return invoke("export_all", { path, rootFolderId: rootFolderId ?? null });
 }
 
 /**

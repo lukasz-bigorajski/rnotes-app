@@ -66,8 +66,17 @@ pub enum ImportMode {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-/// Write all data to a `.rnotes` ZIP archive at `zip_path`.
-pub fn export_all(conn: &Connection, zip_path: &Path, assets_dir: &Path) -> AppResult<()> {
+/// Write all data (or a folder subtree) to a `.rnotes` ZIP archive at `zip_path`.
+///
+/// When `root_folder_id` is `None`, the entire database is exported (original behaviour).
+/// When `root_folder_id` is `Some(id)`, only the folder itself and all its descendants
+/// (including soft-deleted ones) are exported, along with their tasks and assets.
+pub fn export_all(
+    conn: &Connection,
+    zip_path: &Path,
+    assets_dir: &Path,
+    root_folder_id: Option<&str>,
+) -> AppResult<()> {
     let file = std::fs::File::create(zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
@@ -83,34 +92,97 @@ pub fn export_all(conn: &Connection, zip_path: &Path, assets_dir: &Path) -> AppR
     zip.write_all(serde_json::to_string_pretty(&meta)?.as_bytes())?;
 
     // notes.json
-    let notes = load_all_notes(conn)?;
+    let notes = match root_folder_id {
+        None => load_all_notes(conn)?,
+        Some(root_id) => {
+            let ids = collect_subtree_ids(conn, root_id)?;
+            load_all_notes(conn)?
+                .into_iter()
+                .filter(|n| ids.contains(&n.id))
+                .collect()
+        }
+    };
     zip.start_file("notes.json", options).map_err(|e| AppError::Zip(e.to_string()))?;
     zip.write_all(serde_json::to_string_pretty(&notes)?.as_bytes())?;
 
-    // tasks.json
-    let tasks = load_all_tasks(conn)?;
+    // tasks.json — filter to tasks whose note_id is in the exported note set
+    let exported_note_ids: std::collections::HashSet<String> =
+        notes.iter().map(|n| n.id.clone()).collect();
+    let tasks = load_all_tasks(conn)?
+        .into_iter()
+        .filter(|t| root_folder_id.is_none() || exported_note_ids.contains(&t.note_id))
+        .collect::<Vec<_>>();
     zip.start_file("tasks.json", options).map_err(|e| AppError::Zip(e.to_string()))?;
     zip.write_all(serde_json::to_string_pretty(&tasks)?.as_bytes())?;
 
-    // assets/ directory — walk on-disk tree
+    // assets/ directory — walk on-disk tree, filtered to exported note IDs when scoped
     if assets_dir.exists() {
-        pack_assets_dir(&mut zip, assets_dir, options)?;
+        let id_filter = if root_folder_id.is_some() { Some(&exported_note_ids) } else { None };
+        pack_assets_dir(&mut zip, assets_dir, options, id_filter)?;
     }
 
     zip.finish().map_err(|e| AppError::Zip(e.to_string()))?;
     Ok(())
 }
 
+/// Collect the IDs of `root_id` and all its descendants (BFS, including soft-deleted).
+fn collect_subtree_ids(
+    conn: &Connection,
+    root_id: &str,
+) -> AppResult<std::collections::HashSet<String>> {
+    let mut ids = std::collections::HashSet::new();
+    let mut queue = vec![root_id.to_string()];
+
+    // Load the full flat list once, then BFS in memory to avoid N+1 queries.
+    let all_notes = load_all_notes(conn)?;
+    // Build parent→children index.
+    let mut children: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for note in &all_notes {
+        if let Some(pid) = &note.parent_id {
+            children.entry(pid.clone()).or_default().push(note.id.clone());
+        }
+    }
+
+    while let Some(id) = queue.pop() {
+        if ids.insert(id.clone()) {
+            if let Some(kids) = children.get(&id) {
+                queue.extend(kids.iter().cloned());
+            }
+        }
+    }
+
+    Ok(ids)
+}
+
 /// Walk `assets_dir` recursively and add each file as `assets/<rel_path>`.
+///
+/// When `note_id_filter` is `Some`, only files whose immediate parent directory name
+/// matches one of the note IDs in the set are included.
 fn pack_assets_dir(
     zip: &mut zip::ZipWriter<std::fs::File>,
     assets_dir: &Path,
     options: zip::write::SimpleFileOptions,
+    note_id_filter: Option<&std::collections::HashSet<String>>,
 ) -> AppResult<()> {
     for entry in walkdir(assets_dir) {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() {
+            // Assets are stored as assets/{note_id}/{filename}.
+            // When a filter is active, skip files whose note_id dir is not in the set.
+            if let Some(filter) = note_id_filter {
+                // The note_id is the name of the direct child dir under assets_dir.
+                let note_dir = path
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                if !filter.contains(note_dir) {
+                    continue;
+                }
+            }
+
             // rel_path: strip the parent of assets_dir, prepend "assets/"
             let rel = path
                 .strip_prefix(assets_dir.parent().unwrap_or(assets_dir))
@@ -516,7 +588,7 @@ mod tests {
             .unwrap();
         assert_eq!(count_before, 2);
 
-        export_all(&conn_export, &zip_path, &assets_dir).unwrap();
+        export_all(&conn_export, &zip_path, &assets_dir, None).unwrap();
         assert!(zip_path.exists());
 
         // ── Import into a fresh DB (Replace mode) ─────────────────────────────
@@ -556,7 +628,7 @@ mod tests {
         // Export 2 notes from one DB.
         let conn_src = test_connection();
         setup_notes(&conn_src);
-        export_all(&conn_src, &zip_path, &assets_dir).unwrap();
+        export_all(&conn_src, &zip_path, &assets_dir, None).unwrap();
 
         // Import into a DB that already has 1 note.
         let conn_dest = test_connection();
@@ -593,7 +665,7 @@ mod tests {
         // Source DB: 2 notes (id1, id2).
         let conn_src = test_connection();
         let (id1, id2) = setup_notes(&conn_src);
-        export_all(&conn_src, &zip_path, &assets_dir).unwrap();
+        export_all(&conn_src, &zip_path, &assets_dir, None).unwrap();
 
         // Destination DB: already has id1 (same ID, different title), plus a third note.
         let conn_dest = test_connection();
@@ -657,7 +729,7 @@ mod tests {
         // Source DB: 2 notes (id1 = "First Note", id2 = "Second Note").
         let conn_src = test_connection();
         let (id1, id2) = setup_notes(&conn_src);
-        export_all(&conn_src, &zip_path, &assets_dir).unwrap();
+        export_all(&conn_src, &zip_path, &assets_dir, None).unwrap();
 
         // Destination DB: has id1 with a modified title, plus a third unrelated note.
         let conn_dest = test_connection();
@@ -709,5 +781,97 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count_id2, 1);
+    }
+
+    #[test]
+    fn test_export_folder_subtree_only() {
+        let tmp = TempDir::new().unwrap();
+        let assets_dir = tmp.path().join("assets");
+        std::fs::create_dir_all(&assets_dir).unwrap();
+        let zip_path = tmp.path().join("export_folder.rnotes");
+
+        let conn = test_connection();
+
+        // Create folder F at root.
+        let folder = note_service::create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Work Folder".to_string(),
+                is_folder: true,
+            },
+        )
+        .unwrap();
+
+        // Create two child notes inside folder F.
+        let child1 = note_service::create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: Some(folder.id.clone()),
+                title: "Work Note 1".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
+        let child2 = note_service::create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: Some(folder.id.clone()),
+                title: "Work Note 2".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
+
+        // Create a note outside the folder.
+        let outside = note_service::create_note(
+            &conn,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Personal Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
+
+        // DB should have 4 rows total.
+        let total: i64 =
+            conn.query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0)).unwrap();
+        assert_eq!(total, 4);
+
+        // Export only the folder subtree.
+        export_all(&conn, &zip_path, &assets_dir, Some(&folder.id)).unwrap();
+        assert!(zip_path.exists());
+
+        // Import into a fresh DB.
+        let conn2 = test_connection();
+        import_all(&conn2, &zip_path, &assets_dir, ImportMode::Replace).unwrap();
+
+        // Should have exactly 3 rows: folder + child1 + child2 (outside excluded).
+        let after: i64 =
+            conn2.query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0)).unwrap();
+        assert_eq!(after, 3);
+
+        // The outside note must NOT be present.
+        let outside_count: i64 = conn2
+            .query_row(
+                "SELECT COUNT(*) FROM notes WHERE id = ?1",
+                rusqlite::params![outside.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(outside_count, 0);
+
+        // Folder itself and both children must be present.
+        for id in [&folder.id, &child1.id, &child2.id] {
+            let count: i64 = conn2
+                .query_row(
+                    "SELECT COUNT(*) FROM notes WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "expected note {id} to be present after folder export");
+        }
     }
 }
