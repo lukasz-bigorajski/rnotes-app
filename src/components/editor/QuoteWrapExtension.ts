@@ -23,7 +23,7 @@ export const QuoteWrapExtension = Extension.create({
             if (char === "`") {
               const codeMarkType = state.schema.marks.code;
 
-              // Stage 3: selection already has inline code mark → convert paragraph to code block
+              // Stage 2: selection already has inline code mark → convert paragraph to code block
               if (codeMarkType && state.doc.rangeHasMark(from, to, codeMarkType)) {
                 const codeBlockType = state.schema.nodes.codeBlock;
                 if (codeBlockType) {
@@ -39,30 +39,11 @@ export const QuoteWrapExtension = Extension.create({
                 }
               }
 
-              // Stage 2: selection is surrounded by backtick chars → apply inline code mark
-              if (
-                codeMarkType &&
-                from > 0 &&
-                to < state.doc.content.size &&
-                state.doc.textBetween(from - 1, from) === "`" &&
-                state.doc.textBetween(to, to + 1) === "`"
-              ) {
-                // Remove the surrounding backtick chars and apply code mark.
-                // Delete trailing backtick first (higher index), then leading, to keep positions stable.
-                const tr = state.tr
-                  .delete(to, to + 1)
-                  .delete(from - 1, from)
-                  .addMark(from - 1, to - 1, codeMarkType.create());
-                const newSel = TextSelection.create(tr.doc, from - 1, to - 1);
-                view.dispatch(tr.setSelection(newSel));
+              // Stage 1: plain selection → apply inline code mark
+              if (codeMarkType) {
+                view.dispatch(state.tr.addMark(from, to, codeMarkType.create()));
                 return true;
               }
-
-              // Stage 1: plain selection → wrap with backtick chars, keep inner text selected
-              const wrapTr = state.tr.insertText("`", to).insertText("`", from);
-              const newSel = TextSelection.create(wrapTr.doc, from + 1, to + 1);
-              view.dispatch(wrapTr.setSelection(newSel));
-              return true;
             }
 
             // " and ' → simple char wrap, keep inner text selected
