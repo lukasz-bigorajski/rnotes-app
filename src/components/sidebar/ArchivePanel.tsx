@@ -7,9 +7,10 @@ import type { NoteRow } from "../../ipc/notes";
 
 interface ArchivePanelProps {
   onNoteRestored: () => void;
+  onNoteDeleted?: () => void;
 }
 
-export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
+export function ArchivePanel({ onNoteRestored, onNoteDeleted }: ArchivePanelProps) {
   const [archivedNotes, setArchivedNotes] = useState<NoteRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
         try {
           await hardDeleteNote(note.id);
           await loadArchivedNotes();
+          onNoteDeleted?.();
         } catch (err) {
           console.error("Failed to permanently delete note:", err);
         } finally {
@@ -126,8 +128,8 @@ export function ArchivePanel({ onNoteRestored }: ArchivePanelProps) {
             p="xs"
             style={{
               borderRadius: "var(--mantine-radius-sm)",
-              backgroundColor: "var(--mantine-color-gray-1)",
-              border: "1px solid var(--mantine-color-gray-2)",
+              backgroundColor: "var(--mantine-color-default-hover)",
+              border: "1px solid var(--mantine-color-default-border)",
             }}
           >
             <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>

@@ -247,7 +247,7 @@ export function Sidebar({
         )}
 
         {activeTab === "archive" && (
-          <ArchivePanel onNoteRestored={handleNoteRestored} />
+          <ArchivePanel onNoteRestored={handleNoteRestored} onNoteDeleted={loadArchivedCount} />
         )}
       </Stack>
 
