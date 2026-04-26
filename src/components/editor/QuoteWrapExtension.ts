@@ -20,31 +20,55 @@ export const QuoteWrapExtension = Extension.create({
             const { from, to } = selection;
             const char = event.key;
 
-            // Triple backtick → code block:
-            // If user types ` and the selection text is already surrounded by ``
             if (char === "`") {
-              const selectedText = state.doc.textBetween(from, to);
-              if (selectedText.startsWith("``") && selectedText.endsWith("``") && selectedText.length > 4) {
-                const innerText = selectedText.slice(2, -2);
+              const codeMarkType = state.schema.marks.code;
+
+              // Stage 3: selection already has inline code mark → convert paragraph to code block
+              if (codeMarkType && state.doc.rangeHasMark(from, to, codeMarkType)) {
                 const codeBlockType = state.schema.nodes.codeBlock;
                 if (codeBlockType) {
-                  const $from = state.doc.resolve(from);
-                  const nodeStart = $from.before($from.depth);
-                  const nodeEnd = $from.after($from.depth);
-                  const codeBlock = innerText
-                    ? codeBlockType.create({}, state.schema.text(innerText))
+                  const selectedText = state.doc.textBetween(from, to);
+                  const $anchor = state.doc.resolve(from);
+                  const nodeStart = $anchor.before($anchor.depth);
+                  const nodeEnd = $anchor.after($anchor.depth);
+                  const codeBlock = selectedText
+                    ? codeBlockType.create({}, state.schema.text(selectedText))
                     : codeBlockType.create({});
-                  const replaceTr = state.tr.replaceWith(nodeStart, nodeEnd, codeBlock);
-                  view.dispatch(replaceTr);
+                  view.dispatch(state.tr.replaceWith(nodeStart, nodeEnd, codeBlock));
                   return true;
                 }
               }
+
+              // Stage 2: selection is surrounded by backtick chars → apply inline code mark
+              if (
+                codeMarkType &&
+                from > 0 &&
+                to < state.doc.content.size &&
+                state.doc.textBetween(from - 1, from) === "`" &&
+                state.doc.textBetween(to, to + 1) === "`"
+              ) {
+                // Remove the surrounding backtick chars and apply code mark.
+                // Delete trailing backtick first (higher index), then leading, to keep positions stable.
+                const tr = state.tr
+                  .delete(to, to + 1)
+                  .delete(from - 1, from)
+                  .addMark(from - 1, to - 1, codeMarkType.create());
+                const newSel = TextSelection.create(tr.doc, from - 1, to - 1);
+                view.dispatch(tr.setSelection(newSel));
+                return true;
+              }
+
+              // Stage 1: plain selection → wrap with backtick chars, keep inner text selected
+              const wrapTr = state.tr.insertText("`", to).insertText("`", from);
+              const newSel = TextSelection.create(wrapTr.doc, from + 1, to + 1);
+              view.dispatch(wrapTr.setSelection(newSel));
+              return true;
             }
 
-            // Wrap selection with char on both sides
+            // " and ' → simple char wrap, keep inner text selected
             const wrapTr = state.tr.insertText(char, to).insertText(char, from);
-            const newSelection = TextSelection.create(wrapTr.doc, from + 1, to + 1);
-            view.dispatch(wrapTr.setSelection(newSelection));
+            const newSel = TextSelection.create(wrapTr.doc, from + 1, to + 1);
+            view.dispatch(wrapTr.setSelection(newSel));
             return true;
           },
         },
