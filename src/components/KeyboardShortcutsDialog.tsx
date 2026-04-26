@@ -27,9 +27,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { action: "Open keyboard shortcuts", keys: [[MOD, "/"]] },
       { action: "Global search", keys: [[MOD, "K"], [MOD, SHIFT, "F"]] },
+      { action: "Search by title", keys: [[MOD, SHIFT, "N"]] },
       { action: "Global find & replace", keys: [[MOD, SHIFT, "R"]] },
       { action: "Create new note", keys: [[MOD, "N"]] },
-      { action: "Create new folder", keys: [[MOD, SHIFT, "N"]] },
+      { action: "Create new folder", keys: [[MOD, ALT, "N"]] },
       { action: "Force save note", keys: [[MOD, "S"]] },
       { action: "Archive current note", keys: [[MOD, BACKSPACE]] },
     ],
@@ -38,6 +39,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     group: "Navigation",
     shortcuts: [
       { action: "Toggle sidebar", keys: [[MOD, "\\"]] },
+      { action: "Focus sidebar", keys: [[MOD, "1"]] },
       { action: "Switch to Task Overview", keys: [[MOD, SHIFT, "T"]] },
     ],
   },
@@ -48,6 +50,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { action: "Italic", keys: [[MOD, "I"]] },
       { action: "Strikethrough", keys: [[MOD, SHIFT, "X"]] },
       { action: "Find / Replace", keys: [[MOD, "F"]] },
+      { action: "Duplicate line", keys: [[MOD, "D"]] },
+      { action: "Delete line", keys: [[MOD, "Y"]] },
       { action: "Undo", keys: [[MOD, "Z"]] },
       { action: "Redo", keys: [[MOD, SHIFT, "Z"]] },
     ],

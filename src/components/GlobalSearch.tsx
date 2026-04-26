@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Modal, TextInput, Stack, Paper, Text, UnstyledButton } from "@mantine/core";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Modal, TextInput, Stack, Paper, Text, UnstyledButton, Switch, Group } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { searchNotes } from "../ipc/notes";
 import type { SearchResult } from "../ipc/notes";
@@ -8,26 +8,31 @@ interface GlobalSearchProps {
   opened: boolean;
   onClose: () => void;
   onSelectNote: (noteId: string, query: string) => void;
+  titleOnly?: boolean;
 }
 
-export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProps) {
+export function GlobalSearch({ opened, onClose, onSelectNote, titleOnly: titleOnlyProp }: GlobalSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [titleOnly, setTitleOnly] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state when modal closes
+  // Sync titleOnly from prop when modal opens; reset when it closes
   useEffect(() => {
-    if (!opened) {
+    if (opened) {
+      setTitleOnly(!!titleOnlyProp);
+    } else {
       setQuery("");
       setResults([]);
       setIsSearching(false);
       setSelectedIndex(0);
+      setTitleOnly(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     }
-  }, [opened]);
+  }, [opened, titleOnlyProp]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
@@ -60,20 +65,27 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
     [onSelectNote, onClose, query],
   );
 
+  // Filter results by title when titleOnly mode is active
+  const displayedResults = useMemo(() => {
+    if (!titleOnly || !query.trim()) return results;
+    const q = query.trim().toLowerCase();
+    return results.filter((r) => r.title.toLowerCase().includes(q));
+  }, [results, titleOnly, query]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, displayedResults.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && results.length > 0) {
+      } else if (e.key === "Enter" && displayedResults.length > 0) {
         e.preventDefault();
-        handleSelect(results[selectedIndex].id);
+        handleSelect(displayedResults[selectedIndex].id);
       }
     },
-    [results, selectedIndex, handleSelect],
+    [displayedResults, selectedIndex, handleSelect],
   );
 
   return (
@@ -84,17 +96,30 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
       size="lg"
     >
       <Stack gap="sm" data-testid="global-search-modal">
-        <TextInput
-          ref={inputRef}
-          placeholder="Type to search..."
-          leftSection={<IconSearch size={16} />}
-          value={query}
-          onChange={(e) => handleQueryChange(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          size="md"
-          data-testid="global-search-input"
-          data-autofocus
-        />
+        <Group gap="sm">
+          <TextInput
+            ref={inputRef}
+            placeholder="Type to search..."
+            leftSection={<IconSearch size={16} />}
+            value={query}
+            onChange={(e) => handleQueryChange(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            size="md"
+            style={{ flex: 1 }}
+            data-testid="global-search-input"
+            data-autofocus
+          />
+          <Switch
+            label="Title only"
+            checked={titleOnly}
+            onChange={(e) => {
+              setTitleOnly(e.currentTarget.checked);
+              setSelectedIndex(0);
+            }}
+            size="sm"
+            data-testid="global-search-title-only-toggle"
+          />
+        </Group>
 
         {isSearching && (
           <Text c="dimmed" size="sm" ta="center">
@@ -102,15 +127,15 @@ export function GlobalSearch({ opened, onClose, onSelectNote }: GlobalSearchProp
           </Text>
         )}
 
-        {!isSearching && query && results.length === 0 && (
+        {!isSearching && query && displayedResults.length === 0 && (
           <Text c="dimmed" size="sm" ta="center" data-testid="global-search-no-results">
             No results found.
           </Text>
         )}
 
-        {results.length > 0 && (
+        {displayedResults.length > 0 && (
           <Stack gap={4} data-testid="global-search-results">
-            {results.map((result, index) => (
+            {displayedResults.map((result, index) => (
               <UnstyledButton key={result.id} onClick={() => handleSelect(result.id)}>
                 <Paper
                   p="sm"
