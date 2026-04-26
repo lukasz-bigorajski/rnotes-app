@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Stack, Text, Group, Button } from "@mantine/core";
+import { Stack, Text, Group, ActionIcon, Tooltip } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconRestore, IconArchive, IconTrash } from "@tabler/icons-react";
 import { listNotes, restoreNote, hardDeleteNote } from "../../ipc/notes";
@@ -140,26 +140,30 @@ export function ArchivePanel({ onNoteRestored, onNoteDeleted }: ArchivePanelProp
                 {note.deleted_at && formatDeletedTime(note.deleted_at)}
               </Text>
             </Stack>
-            <Group gap="xs">
-              <Button
-                size="compact-xs"
-                variant="light"
-                leftSection={<IconRestore size={12} />}
-                onClick={() => handleRestore(note.id)}
-                loading={restoring === note.id}
-              >
-                Restore
-              </Button>
-              <Button
-                size="compact-xs"
-                variant="light"
-                color="red"
-                leftSection={<IconTrash size={12} />}
-                onClick={() => handleDeleteForever(note)}
-                loading={deleting === note.id}
-              >
-                Delete forever
-              </Button>
+            <Group gap={4} style={{ flexShrink: 0 }}>
+              <Tooltip label="Restore" withArrow>
+                <ActionIcon
+                  size="sm"
+                  variant="light"
+                  onClick={() => handleRestore(note.id)}
+                  loading={restoring === note.id}
+                  aria-label="Restore"
+                >
+                  <IconRestore size={14} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Delete forever" withArrow>
+                <ActionIcon
+                  size="sm"
+                  variant="light"
+                  color="red"
+                  onClick={() => handleDeleteForever(note)}
+                  loading={deleting === note.id}
+                  aria-label="Delete forever"
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Tooltip>
             </Group>
           </Group>
         ))}
