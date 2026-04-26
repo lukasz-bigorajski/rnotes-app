@@ -28,6 +28,7 @@ interface SidebarProps {
   createNoteRef?: MutableRefObject<(() => void) | null>;
   createFolderRef?: MutableRefObject<(() => void) | null>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
+  focusSidebarRef?: MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
   onShowNotes?: () => void;
   onOpenGlobalSearch?: () => void;
@@ -42,6 +43,7 @@ export function Sidebar({
   createNoteRef,
   createFolderRef,
   refreshActiveNoteRef,
+  focusSidebarRef,
   onShowTaskOverview,
   onShowNotes,
   onOpenGlobalSearch,
@@ -52,6 +54,7 @@ export function Sidebar({
   const [activeTab, setActiveTab] = useState<SidebarTab>("notes");
   const [pendingRenameId, setPendingRenameId] = useState<string | null>(null);
   const [archivedCount, setArchivedCount] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const storedExpandedIds = (() => {
     try {
@@ -157,6 +160,12 @@ export function Sidebar({
     }
   }, [createFolderRef]);
 
+  useEffect(() => {
+    if (focusSidebarRef) {
+      focusSidebarRef.current = () => searchInputRef.current?.focus();
+    }
+  }, [focusSidebarRef]);
+
   const handleNoteRestored = () => {
     loadNotes();
     loadArchivedCount();
@@ -182,6 +191,7 @@ export function Sidebar({
           <>
             <Group gap="xs">
               <TextInput
+                ref={searchInputRef}
                 placeholder="Search notes..."
                 leftSection={<IconSearch size={14} />}
                 size="xs"

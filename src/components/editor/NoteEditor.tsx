@@ -14,6 +14,8 @@ import { createLowlight, common } from "lowlight";
 import { CodeBlockNodeView } from "./CodeBlockNodeView";
 import { TocExtension } from "./TocExtension";
 import { HeadingShortcutsExtension } from "./HeadingShortcutsExtension";
+import { LineOperationsExtension } from "./LineOperationsExtension";
+import { QuoteWrapExtension } from "./QuoteWrapExtension";
 import { EmojiExtension } from "./EmojiExtension";
 import "tippy.js/dist/tippy.css";
 import { EditorToolbar } from "./EditorToolbar";
@@ -265,6 +267,8 @@ export function NoteEditor({
         },
       }),
       HeadingShortcutsExtension,
+      LineOperationsExtension,
+      QuoteWrapExtension,
       EmojiExtension,
     ],
     content: content ?? undefined,

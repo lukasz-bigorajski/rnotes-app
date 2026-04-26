@@ -29,9 +29,11 @@ function AppInner() {
   const flushTitleSaveRef = useRef<(() => void) | null>(null);
   const refreshActiveNoteRef = useRef<(() => void) | null>(null);
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
+  const [globalSearchTitleOnly, setGlobalSearchTitleOnly] = useState(false);
   const [globalFindReplaceOpened, setGlobalFindReplaceOpened] = useState(false);
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
   const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
+  const focusSidebarRef = useRef<(() => void) | null>(null);
 
   useUpdater();
 
@@ -50,16 +52,18 @@ function AppInner() {
   };
 
   useHotkeys([
-    ["mod+K", () => setGlobalSearchOpened(true)],
-    ["ctrl+K", () => setGlobalSearchOpened(true)],
-    ["mod+shift+F", () => setGlobalSearchOpened(true)],
+    ["mod+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+    ["ctrl+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+    ["mod+shift+F", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+    ["mod+shift+N", () => { setGlobalSearchTitleOnly(true); setGlobalSearchOpened(true); }],
+    ["mod+alt+N", () => createFolderRef.current?.()],
     ["mod+shift+R", () => setGlobalFindReplaceOpened(true)],
     ["mod+/", () => setShortcutsDialogOpened(true)],
     ["mod+N", () => createNoteRef.current?.()],
-    ["mod+shift+N", () => createFolderRef.current?.()],
     ["mod+S", () => forceSaveRef.current?.()],
     ["mod+\\", () => setSidebarVisible((v) => !v)],
     ["mod+shift+T", () => handleShowTaskOverview()],
+    ["mod+1", () => focusSidebarRef.current?.()],
   ]);
 
   const handleNotesChanged = () => {
@@ -107,6 +111,7 @@ function AppInner() {
         opened={globalSearchOpened}
         onClose={() => setGlobalSearchOpened(false)}
         onSelectNote={handleGlobalSearchSelect}
+        titleOnly={globalSearchTitleOnly}
       />
       <GlobalFindReplace
         opened={globalFindReplaceOpened}
@@ -133,6 +138,7 @@ function AppInner() {
               refreshRef={sidebarRefreshRef}
               createNoteRef={createNoteRef}
               createFolderRef={createFolderRef}
+              focusSidebarRef={focusSidebarRef}
               onShowTaskOverview={handleShowTaskOverview}
               onShowNotes={handleShowNotes}
               onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
