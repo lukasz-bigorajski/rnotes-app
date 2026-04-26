@@ -22,15 +22,17 @@ export const QuoteWrapExtension = Extension.create({
 
             if (char === "`") {
               const codeMarkType = state.schema.marks.code;
+              const $fromPos = state.doc.resolve(from);
+              const $toPos = state.doc.resolve(to);
+              const isMultiLine = !$fromPos.sameParent($toPos);
 
-              // Stage 2: selection already has inline code mark → convert paragraph to code block
-              if (codeMarkType && state.doc.rangeHasMark(from, to, codeMarkType)) {
+              // Multi-line selection → code block directly
+              if (isMultiLine) {
                 const codeBlockType = state.schema.nodes.codeBlock;
                 if (codeBlockType) {
-                  const selectedText = state.doc.textBetween(from, to);
-                  const $anchor = state.doc.resolve(from);
-                  const nodeStart = $anchor.before($anchor.depth);
-                  const nodeEnd = $anchor.after($anchor.depth);
+                  const selectedText = state.doc.textBetween(from, to, "\n");
+                  const nodeStart = $fromPos.before($fromPos.depth);
+                  const nodeEnd = $toPos.after($toPos.depth);
                   const codeBlock = selectedText
                     ? codeBlockType.create({}, state.schema.text(selectedText))
                     : codeBlockType.create({});
@@ -39,7 +41,22 @@ export const QuoteWrapExtension = Extension.create({
                 }
               }
 
-              // Stage 1: plain selection → apply inline code mark
+              // Stage 2: single-line selection with inline code mark → convert paragraph to code block
+              if (codeMarkType && state.doc.rangeHasMark(from, to, codeMarkType)) {
+                const codeBlockType = state.schema.nodes.codeBlock;
+                if (codeBlockType) {
+                  const selectedText = state.doc.textBetween(from, to);
+                  const nodeStart = $fromPos.before($fromPos.depth);
+                  const nodeEnd = $fromPos.after($fromPos.depth);
+                  const codeBlock = selectedText
+                    ? codeBlockType.create({}, state.schema.text(selectedText))
+                    : codeBlockType.create({});
+                  view.dispatch(state.tr.replaceWith(nodeStart, nodeEnd, codeBlock));
+                  return true;
+                }
+              }
+
+              // Stage 1: plain single-line selection → apply inline code mark
               if (codeMarkType) {
                 view.dispatch(state.tr.addMark(from, to, codeMarkType.create()));
                 return true;
