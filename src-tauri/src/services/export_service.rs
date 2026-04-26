@@ -54,9 +54,13 @@ pub struct ExportMeta {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum ImportMode {
+    /// Wipe all existing data, then insert everything from the archive.
     Replace,
+    /// Only insert notes/tasks whose ID does not already exist; skip conflicts.
+    AddMissing,
+    /// Upsert: overwrite existing rows and insert new ones.
     Merge,
 }
 
@@ -252,35 +256,65 @@ pub fn import_all(
         }
 
         for note in &notes {
-            let res = tx.execute(
-                "INSERT INTO notes
-                     (id, parent_id, title, content, sort_order, is_folder,
-                      deleted_at, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                rusqlite::params![
-                    note.id,
-                    note.parent_id,
-                    note.title,
-                    note.content,
-                    note.sort_order,
-                    note.is_folder,
-                    note.deleted_at,
-                    note.created_at,
-                    note.updated_at,
-                ],
-            );
-            if let Err(e) = res {
-                if matches!(mode, ImportMode::Merge) {
-                    // On conflict, skip.
-                    if is_constraint_error(&e) {
-                        continue;
+            let inserted = match mode {
+                ImportMode::Replace | ImportMode::AddMissing => {
+                    let res = tx.execute(
+                        "INSERT INTO notes
+                             (id, parent_id, title, content, sort_order, is_folder,
+                              deleted_at, created_at, updated_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                        rusqlite::params![
+                            note.id,
+                            note.parent_id,
+                            note.title,
+                            note.content,
+                            note.sort_order,
+                            note.is_folder,
+                            note.deleted_at,
+                            note.created_at,
+                            note.updated_at,
+                        ],
+                    );
+                    match res {
+                        Ok(_) => true,
+                        Err(e) if matches!(mode, ImportMode::AddMissing) && is_constraint_error(&e) => false,
+                        Err(e) => return Err(AppError::Database(e)),
                     }
                 }
-                return Err(AppError::Database(e));
-            }
+                ImportMode::Merge => {
+                    tx.execute(
+                        "INSERT INTO notes
+                             (id, parent_id, title, content, sort_order, is_folder,
+                              deleted_at, created_at, updated_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                         ON CONFLICT(id) DO UPDATE SET
+                             parent_id  = excluded.parent_id,
+                             title      = excluded.title,
+                             content    = excluded.content,
+                             sort_order = excluded.sort_order,
+                             is_folder  = excluded.is_folder,
+                             deleted_at = excluded.deleted_at,
+                             created_at = excluded.created_at,
+                             updated_at = excluded.updated_at",
+                        rusqlite::params![
+                            note.id,
+                            note.parent_id,
+                            note.title,
+                            note.content,
+                            note.sort_order,
+                            note.is_folder,
+                            note.deleted_at,
+                            note.created_at,
+                            note.updated_at,
+                        ],
+                    )
+                    .map_err(AppError::Database)?;
+                    true
+                }
+            };
 
             // Re-index in FTS (non-folders only, non-deleted).
-            if !note.is_folder && note.deleted_at.is_none() {
+            if inserted && !note.is_folder && note.deleted_at.is_none() {
                 tx.execute(
                     "DELETE FROM notes_fts WHERE note_id = ?1",
                     rusqlite::params![note.id],
@@ -293,27 +327,57 @@ pub fn import_all(
         }
 
         for task in &tasks {
-            let res = tx.execute(
-                "INSERT INTO note_tasks
-                     (id, note_id, content, is_checked, notify_at, notified_at,
-                      created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                rusqlite::params![
-                    task.id,
-                    task.note_id,
-                    task.content,
-                    task.is_checked,
-                    task.notify_at,
-                    task.notified_at,
-                    task.created_at,
-                    task.updated_at,
-                ],
-            );
-            if let Err(e) = res {
-                if matches!(mode, ImportMode::Merge) && is_constraint_error(&e) {
-                    continue;
+            match mode {
+                ImportMode::Replace | ImportMode::AddMissing => {
+                    let res = tx.execute(
+                        "INSERT INTO note_tasks
+                             (id, note_id, content, is_checked, notify_at, notified_at,
+                              created_at, updated_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                        rusqlite::params![
+                            task.id,
+                            task.note_id,
+                            task.content,
+                            task.is_checked,
+                            task.notify_at,
+                            task.notified_at,
+                            task.created_at,
+                            task.updated_at,
+                        ],
+                    );
+                    match res {
+                        Ok(_) => {}
+                        Err(e) if matches!(mode, ImportMode::AddMissing) && is_constraint_error(&e) => {}
+                        Err(e) => return Err(AppError::Database(e)),
+                    }
                 }
-                return Err(AppError::Database(e));
+                ImportMode::Merge => {
+                    tx.execute(
+                        "INSERT INTO note_tasks
+                             (id, note_id, content, is_checked, notify_at, notified_at,
+                              created_at, updated_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                         ON CONFLICT(id) DO UPDATE SET
+                             note_id     = excluded.note_id,
+                             content     = excluded.content,
+                             is_checked  = excluded.is_checked,
+                             notify_at   = excluded.notify_at,
+                             notified_at = excluded.notified_at,
+                             created_at  = excluded.created_at,
+                             updated_at  = excluded.updated_at",
+                        rusqlite::params![
+                            task.id,
+                            task.note_id,
+                            task.content,
+                            task.is_checked,
+                            task.notify_at,
+                            task.notified_at,
+                            task.created_at,
+                            task.updated_at,
+                        ],
+                    )
+                    .map_err(AppError::Database)?;
+                }
             }
         }
 
@@ -517,5 +581,133 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
             .unwrap();
         assert_eq!(after, 2);
+    }
+
+    #[test]
+    fn test_import_add_missing_skips_existing_inserts_new() {
+        let tmp = TempDir::new().unwrap();
+        let assets_dir = tmp.path().join("assets");
+        std::fs::create_dir_all(&assets_dir).unwrap();
+        let zip_path = tmp.path().join("export.rnotes");
+
+        // Source DB: 2 notes (id1, id2).
+        let conn_src = test_connection();
+        let (id1, id2) = setup_notes(&conn_src);
+        export_all(&conn_src, &zip_path, &assets_dir).unwrap();
+
+        // Destination DB: already has id1 (same ID, different title), plus a third note.
+        let conn_dest = test_connection();
+        conn_dest
+            .execute(
+                "INSERT INTO notes (id, parent_id, title, content, sort_order, is_folder,
+                                    deleted_at, created_at, updated_at)
+                 VALUES (?1, NULL, 'Modified Title', NULL, 1.0, 0, NULL, 1000, 1000)",
+                rusqlite::params![id1],
+            )
+            .unwrap();
+        note_service::create_note(
+            &conn_dest,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Third Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
+
+        let before: i64 = conn_dest
+            .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(before, 2);
+
+        import_all(&conn_dest, &zip_path, &assets_dir, ImportMode::AddMissing).unwrap();
+
+        // id1 was already present — should NOT be overwritten; id2 should be added; third stays.
+        let after: i64 = conn_dest
+            .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 3); // id1 + id2 + third
+
+        // id1 title must remain unchanged.
+        let title1: String = conn_dest
+            .query_row("SELECT title FROM notes WHERE id = ?1", rusqlite::params![id1], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(title1, "Modified Title");
+
+        // id2 should now exist.
+        let count_id2: i64 = conn_dest
+            .query_row(
+                "SELECT COUNT(*) FROM notes WHERE id = ?1",
+                rusqlite::params![id2],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count_id2, 1);
+    }
+
+    #[test]
+    fn test_import_merge_overwrites_existing_and_adds_new() {
+        let tmp = TempDir::new().unwrap();
+        let assets_dir = tmp.path().join("assets");
+        std::fs::create_dir_all(&assets_dir).unwrap();
+        let zip_path = tmp.path().join("export.rnotes");
+
+        // Source DB: 2 notes (id1 = "First Note", id2 = "Second Note").
+        let conn_src = test_connection();
+        let (id1, id2) = setup_notes(&conn_src);
+        export_all(&conn_src, &zip_path, &assets_dir).unwrap();
+
+        // Destination DB: has id1 with a modified title, plus a third unrelated note.
+        let conn_dest = test_connection();
+        conn_dest
+            .execute(
+                "INSERT INTO notes (id, parent_id, title, content, sort_order, is_folder,
+                                    deleted_at, created_at, updated_at)
+                 VALUES (?1, NULL, 'Modified Title', NULL, 1.0, 0, NULL, 1000, 1000)",
+                rusqlite::params![id1],
+            )
+            .unwrap();
+        note_service::create_note(
+            &conn_dest,
+            CreateNoteRequest {
+                parent_id: None,
+                title: "Third Note".to_string(),
+                is_folder: false,
+            },
+        )
+        .unwrap();
+
+        let before: i64 = conn_dest
+            .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(before, 2);
+
+        import_all(&conn_dest, &zip_path, &assets_dir, ImportMode::Merge).unwrap();
+
+        // id1 + id2 + third = 3 total.
+        let after: i64 = conn_dest
+            .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 3);
+
+        // id1 must be overwritten with archive title.
+        let title1: String = conn_dest
+            .query_row("SELECT title FROM notes WHERE id = ?1", rusqlite::params![id1], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(title1, "First Note");
+
+        // id2 must now exist.
+        let count_id2: i64 = conn_dest
+            .query_row(
+                "SELECT COUNT(*) FROM notes WHERE id = ?1",
+                rusqlite::params![id2],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count_id2, 1);
     }
 }

@@ -32,7 +32,10 @@ pub fn export_all(
 /// Import data from a `.rnotes` zip archive.
 ///
 /// `path` is the absolute source file path chosen by the user via file dialog.
-/// `mode` is `"replace"` (wipe & replace) or `"merge"` (skip conflicts).
+/// `mode` is one of:
+///   - `"replace"`     — wipe all existing data, then insert archive contents
+///   - `"add_missing"` — only insert rows whose ID does not already exist
+///   - `"merge"`       — upsert: overwrite existing rows and insert new ones
 #[tauri::command]
 pub fn import_all(
     app: AppHandle,

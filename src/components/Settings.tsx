@@ -12,6 +12,7 @@ import {
   ScrollArea,
   Button,
   Notification,
+  Radio,
 } from "@mantine/core";
 import { useMantineColorScheme } from "@mantine/core";
 import { modals } from "@mantine/modals";
@@ -19,6 +20,7 @@ import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialo
 import { useUserConfig } from "../context/UserConfigContext";
 import type { UserConfig } from "../ipc/config";
 import { exportAll, importAll } from "../ipc/backup";
+import type { ImportMode } from "../ipc/backup";
 import classes from "./Settings.module.css";
 
 const FONT_FAMILY_OPTIONS = [
@@ -93,28 +95,91 @@ export function Settings() {
 
     const filePath = typeof path === "string" ? path : path[0];
 
-    modals.openConfirmModal({
-      title: "Replace all data?",
+    function ImportStrategyBody({
+      onConfirm,
+      onClose,
+    }: {
+      onConfirm: (mode: ImportMode) => void;
+      onClose: () => void;
+    }) {
+      const [strategy, setStrategy] = useState<ImportMode>("add_missing");
+      return (
+        <Stack gap="md">
+          <Radio.Group value={strategy} onChange={(v) => setStrategy(v as ImportMode)}>
+            <Stack gap="sm">
+              <Radio
+                value="add_missing"
+                label={
+                  <Stack gap={2}>
+                    <Text size="sm" fw={500}>
+                      Add missing
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Only import notes that don't already exist (no overwrites)
+                    </Text>
+                  </Stack>
+                }
+              />
+              <Radio
+                value="merge"
+                label={
+                  <Stack gap={2}>
+                    <Text size="sm" fw={500}>
+                      Merge
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Overwrite existing notes and add any new ones from the archive
+                    </Text>
+                  </Stack>
+                }
+              />
+              <Radio
+                value="replace"
+                label={
+                  <Stack gap={2}>
+                    <Text size="sm" fw={500}>
+                      Replace all
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Delete all current notes and replace with imported archive
+                    </Text>
+                  </Stack>
+                }
+              />
+            </Stack>
+          </Radio.Group>
+          <Group justify="flex-end" mt="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={() => onConfirm(strategy)}>Import</Button>
+          </Group>
+        </Stack>
+      );
+    }
+
+    modals.open({
+      title: "Import strategy",
       children: (
-        <Text size="sm">
-          This will <strong>permanently wipe</strong> all your current notes, tasks and assets, then
-          restore everything from the selected archive. This action cannot be undone.
-        </Text>
+        <ImportStrategyBody
+          onConfirm={(mode) => {
+            modals.closeAll();
+            setDataLoading("import");
+            setDataMessage(null);
+            importAll(filePath, mode)
+              .then(() => {
+                setDataMessage({ text: "Import complete. Please restart the app.", error: false });
+              })
+              .catch((err) => {
+                setDataMessage({ text: `Import failed: ${err}`, error: true });
+              })
+              .finally(() => {
+                setDataLoading(null);
+              });
+          }}
+          onClose={() => modals.closeAll()}
+        />
       ),
-      labels: { confirm: "Replace all data", cancel: "Cancel" },
-      confirmProps: { color: "red" },
-      onConfirm: async () => {
-        setDataLoading("import");
-        setDataMessage(null);
-        try {
-          await importAll(filePath, "replace");
-          setDataMessage({ text: "Import complete. Please restart the app.", error: false });
-        } catch (err) {
-          setDataMessage({ text: `Import failed: ${err}`, error: true });
-        } finally {
-          setDataLoading(null);
-        }
-      },
     });
   }, []);
 
@@ -256,7 +321,6 @@ export function Settings() {
               </Button>
               <Button
                 variant="light"
-                color="red"
                 loading={dataLoading === "import"}
                 onClick={handleImport}
               >

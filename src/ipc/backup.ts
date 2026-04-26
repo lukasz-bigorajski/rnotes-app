@@ -31,7 +31,7 @@ export function createBackup(): Promise<BackupInfo> {
   return invoke("create_backup");
 }
 
-export type ImportMode = "replace" | "merge";
+export type ImportMode = "replace" | "add_missing" | "merge";
 
 /**
  * Export all notes, tasks and assets to the given absolute file path.
@@ -43,8 +43,9 @@ export function exportAll(path: string): Promise<void> {
 
 /**
  * Import data from a `.rnotes` archive.
- * `mode` = "replace" wipes the DB before importing;
- * `mode` = "merge"   skips rows that conflict with existing IDs.
+ * `mode` = "replace"     — wipe all existing data, then insert archive contents.
+ * `mode` = "add_missing" — only insert rows whose ID does not already exist.
+ * `mode` = "merge"       — upsert: overwrite existing rows and insert new ones.
  */
 export function importAll(path: string, mode: ImportMode): Promise<void> {
   return invoke("import_all", { path, mode });
