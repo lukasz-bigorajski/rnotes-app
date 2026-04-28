@@ -25,6 +25,7 @@ interface DraggableTreeProps {
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   pendingRenameId?: string | null;
   onPendingRenameConsumed?: () => void;
+  focusSidebarRef?: MutableRefObject<(() => void) | null>;
 }
 
 export function DraggableTree({
@@ -36,6 +37,7 @@ export function DraggableTree({
   refreshActiveNoteRef,
   pendingRenameId,
   onPendingRenameConsumed,
+  focusSidebarRef,
 }: DraggableTreeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -185,6 +187,7 @@ export function DraggableTree({
         refreshActiveNoteRef={refreshActiveNoteRef}
         pendingRenameId={pendingRenameId}
         onPendingRenameConsumed={onPendingRenameConsumed}
+        focusSidebarRef={focusSidebarRef}
       />
 
       <DragOverlay

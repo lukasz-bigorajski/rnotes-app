@@ -1,3 +1,7 @@
+.treeContainer {
+  outline: none;
+}
+
 .treeNode {
   /* Use padding-block/inline-end so we don't override Mantine's padding-inline-start
      which carries the --label-offset CSS variable for tree indentation.
@@ -22,6 +26,12 @@
 
 .treeNode[data-selected="true"] .label {
   font-weight: 500;
+}
+
+.focused {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 
 .label {

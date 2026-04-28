@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
@@ -24,7 +24,48 @@ interface NoteTreeProps {
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   pendingRenameId?: string | null;
   onPendingRenameConsumed?: () => void;
+  focusSidebarRef?: MutableRefObject<(() => void) | null>;
 }
+
+// ---- Helper functions for keyboard navigation ----
+
+function getVisibleNodeIds(nodes: TreeNodeData[], expandedState: Record<string, boolean>): string[] {
+  const result: string[] = [];
+  function walk(items: TreeNodeData[]) {
+    for (const node of items) {
+      result.push(node.value);
+      if (node.children?.length && expandedState[node.value]) {
+        walk(node.children);
+      }
+    }
+  }
+  walk(nodes);
+  return result;
+}
+
+function findNodeById(nodes: TreeNodeData[], id: string): TreeNodeData | null {
+  for (const node of nodes) {
+    if (node.value === id) return node;
+    if (node.children?.length) {
+      const found = findNodeById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findParentNodeId(nodes: TreeNodeData[], id: string, parent: string | null = null): string | null {
+  for (const node of nodes) {
+    if (node.value === id) return parent;
+    if (node.children?.length) {
+      const found = findParentNodeId(node.children, id, node.value);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined as unknown as null;
+}
+
+// ---- DraggableTreeNode component ----
 
 /**
  * Draggable tree node with drop zone support.
@@ -43,6 +84,7 @@ function DraggableTreeNode({
   onDelete,
   onCreateNote,
   onCopy,
+  focusedNodeId,
 }: {
   nodeId: string;
   payload: RenderTreeNodePayload;
@@ -56,12 +98,14 @@ function DraggableTreeNode({
   onDelete: (id: string) => void;
   onCreateNote: (parentId: string, title: string, isFolder: boolean) => void;
   onCopy: (id: string) => void;
+  focusedNodeId: string | null;
 }) {
   const { node, expanded, hasChildren, elementProps } = payload;
   const isFolder = (node.nodeProps as { isFolder: boolean }).isFolder;
   const isActive = node.value === activeNoteId;
   const isRenaming = renamingNodeId === node.value;
   const showChildIndicator = isFolder && !expanded && hasChildren;
+  const isFocused = node.value === focusedNodeId;
 
   // Setup draggable — disable when renaming
   // Bug fix: extract setNodeRef so dnd-kit can track the draggable's bounding rect
@@ -138,6 +182,7 @@ function DraggableTreeNode({
     isDragging ? classes.dragging : "",
     isOver && !isDragging ? classes.dropZoneActive : "",
     isOver && isFolder && !isDragging ? classes.dropZoneFolder : "",
+    isFocused ? classes.focused : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -199,10 +244,13 @@ export function NoteTree({
   refreshActiveNoteRef,
   pendingRenameId,
   onPendingRenameConsumed,
+  focusSidebarRef,
 }: NoteTreeProps) {
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [isRenamingLoading, setIsRenamingLoading] = useState(false);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const treeContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-enter rename mode once the newly created note appears in the tree
   useEffect(() => {
@@ -212,6 +260,16 @@ export function NoteTree({
       onPendingRenameConsumed?.();
     }
   }, [pendingRenameId, notes, onPendingRenameConsumed]);
+
+  // Expose focus function via ref so App.tsx Mod+1 can focus the tree
+  useEffect(() => {
+    if (focusSidebarRef) {
+      focusSidebarRef.current = () => {
+        setFocusedNodeId(activeNoteId);
+        treeContainerRef.current?.focus();
+      };
+    }
+  }, [activeNoteId, focusSidebarRef]);
 
   const treeData = useMemo<TreeNodeData[]>(() => buildTree(notes), [notes]);
 
@@ -307,6 +365,64 @@ export function NoteTree({
     [setActiveNoteId, onNotesChanged],
   );
 
+  const handleTreeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const visible = getVisibleNodeIds(treeData, tree.expandedState);
+      const currentId = focusedNodeId ?? activeNoteId;
+      if (!currentId || visible.length === 0) return;
+
+      const idx = visible.indexOf(currentId);
+      const node = findNodeById(treeData, currentId);
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          if (idx < visible.length - 1) setFocusedNodeId(visible[idx + 1]);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          if (idx > 0) setFocusedNodeId(visible[idx - 1]);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (node?.children?.length) {
+            if (!tree.expandedState[currentId]) {
+              tree.toggleExpanded(currentId);
+            } else {
+              setFocusedNodeId(node.children[0].value);
+            }
+          }
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          if (node?.children?.length && tree.expandedState[currentId]) {
+            tree.toggleExpanded(currentId);
+          } else {
+            const parent = findParentNodeId(treeData, currentId);
+            if (parent) setFocusedNodeId(parent);
+          }
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (node?.children?.length) {
+            tree.toggleExpanded(currentId);
+          } else {
+            setActiveNoteId(currentId);
+          }
+          break;
+        case "F2":
+          e.preventDefault();
+          setRenamingNodeId(currentId);
+          break;
+        case "Delete":
+          e.preventDefault();
+          handleDelete(currentId);
+          break;
+      }
+    },
+    [treeData, tree, focusedNodeId, activeNoteId, setActiveNoteId, handleDelete],
+  );
+
   // Stabilise the renderNode callback with useCallback so Mantine's Tree does not
   // remount all nodes on every render (which would destroy dnd-kit's internal state
   // mid-drag and break the gesture).
@@ -327,6 +443,7 @@ export function NoteTree({
           onDelete={handleDelete}
           onCreateNote={handleCreateNote}
           onCopy={handleCopyNote}
+          focusedNodeId={focusedNodeId}
         />
       );
     },
@@ -340,16 +457,31 @@ export function NoteTree({
       handleDelete,
       handleCreateNote,
       handleCopyNote,
+      focusedNodeId,
     ],
   );
 
   return (
-    <Tree
-      data={treeData}
-      tree={tree}
-      renderNode={stableRenderNode}
-      classNames={classes}
-      levelOffset={12}
-    />
+    <div
+      ref={treeContainerRef}
+      tabIndex={0}
+      onKeyDown={handleTreeKeyDown}
+      onFocus={() => {
+        if (focusedNodeId === null) {
+          setFocusedNodeId(activeNoteId);
+        }
+      }}
+      onBlur={() => setFocusedNodeId(null)}
+      className={classes.treeContainer}
+      style={{ outline: "none" }}
+    >
+      <Tree
+        data={treeData}
+        tree={tree}
+        renderNode={stableRenderNode}
+        classNames={classes}
+        levelOffset={12}
+      />
+    </div>
   );
 }

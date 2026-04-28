@@ -160,11 +160,7 @@ export function Sidebar({
     }
   }, [createFolderRef]);
 
-  useEffect(() => {
-    if (focusSidebarRef) {
-      focusSidebarRef.current = () => searchInputRef.current?.focus();
-    }
-  }, [focusSidebarRef]);
+  // focusSidebarRef is forwarded to NoteTree, which sets it to focus the tree container.
 
   const handleNoteRestored = () => {
     loadNotes();
@@ -251,6 +247,7 @@ export function Sidebar({
                 refreshActiveNoteRef={refreshActiveNoteRef}
                 pendingRenameId={pendingRenameId}
                 onPendingRenameConsumed={() => setPendingRenameId(null)}
+                focusSidebarRef={focusSidebarRef}
               />
             )}
           </>
