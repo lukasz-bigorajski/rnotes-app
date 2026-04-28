@@ -102,7 +102,7 @@ pub fn list_metadata(conn: &Connection, include_deleted: bool) -> AppResult<Vec<
          FROM notes ORDER BY sort_order"
     } else {
         "SELECT id, parent_id, title, sort_order, is_folder, deleted_at, created_at, updated_at
-         FROM notes WHERE deleted_at IS NULL ORDER BY sort_order"
+         FROM notes WHERE deleted_at IS NULL AND title NOT LIKE '__rnotes_%' ORDER BY sort_order"
     };
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map([], |row| {

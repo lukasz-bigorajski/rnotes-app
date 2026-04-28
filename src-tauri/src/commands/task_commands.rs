@@ -1,9 +1,19 @@
 use tauri::State;
 
 use crate::db::tasks::NoteTask;
-use crate::error::AppError;
+use crate::error::{AppError, AppResult};
 use crate::services::task_service::{self, NoteTaskWithNote, UpdateTaskCheckedResult};
 use crate::state::DbState;
+
+#[tauri::command]
+pub fn create_inbox_task(
+    db: State<'_, DbState>,
+    content: String,
+    notify_at: Option<i64>,
+) -> AppResult<NoteTask> {
+    let conn = lock_db(&db)?;
+    task_service::create_inbox_task(&conn, content, notify_at)
+}
 
 fn lock_db<'a>(
     state: &'a State<'a, DbState>,

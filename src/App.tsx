@@ -125,11 +125,11 @@ function AppInner() {
         navbar={{
           width: 280,
           breakpoint: "sm",
-          collapsed: { mobile: !opened, desktop: !sidebarVisible },
+          collapsed: { mobile: !opened, desktop: !sidebarVisible || activeView === "tasks" },
         }}
         padding={0}
       >
-        {sidebarVisible && (
+        {sidebarVisible && activeView !== "tasks" && (
           <AppShell.Navbar p="sm">
             <Sidebar
               key={recoveryKey}

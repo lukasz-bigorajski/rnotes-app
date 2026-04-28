@@ -149,6 +149,7 @@ pub fn run() {
             commands::task_commands::get_note_tasks,
             commands::task_commands::get_all_tasks,
             commands::task_commands::update_task_checked,
+            commands::task_commands::create_inbox_task,
             commands::backup::create_backup,
             commands::backup::list_backups,
             commands::backup::get_app_health,

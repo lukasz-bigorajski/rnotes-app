@@ -39,3 +39,7 @@ export function updateTaskChecked(
 ): Promise<UpdateTaskCheckedResult> {
   return invoke("update_task_checked", { taskId, isChecked });
 }
+
+export function createInboxTask(content: string, notifyAt: number | null): Promise<NoteTask> {
+  return invoke("create_inbox_task", { content, notifyAt });
+}

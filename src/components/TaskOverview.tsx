@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { Text, Title, SegmentedControl, Select, Checkbox, Badge, Stack, Group } from "@mantine/core";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Text, Title, SegmentedControl, Select, Checkbox, Badge, Stack, Group, Button, Modal, TextInput } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { IconNotes } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { getAllTasks, updateTaskChecked } from "../ipc/tasks";
+import { getAllTasks, updateTaskChecked, createInboxTask } from "../ipc/tasks";
 import type { NoteTaskWithNote } from "../ipc/tasks";
 import { notifyError } from "../utils/notify";
 import styles from "./TaskOverview.module.css";
@@ -62,6 +63,11 @@ export function TaskOverview({
   const [tasks, setTasks] = useState<NoteTaskWithNote[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
   const [sortOption, setSortOption] = useState<SortOption>("Due date");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newTaskContent, setNewTaskContent] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState<Date | null>(null);
+  const [saving, setSaving] = useState(false);
+  const contentInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     getAllTasks()
@@ -98,6 +104,27 @@ export function TaskOverview({
     },
     [activeNoteId, onNoteContentChanged],
   );
+
+  const handleOpenModal = () => {
+    setNewTaskContent("");
+    setNewTaskDueDate(null);
+    setModalOpen(true);
+  };
+
+  const handleSaveTask = async () => {
+    if (!newTaskContent.trim()) return;
+    setSaving(true);
+    try {
+      await createInboxTask(newTaskContent.trim(), newTaskDueDate ? newTaskDueDate.getTime() : null);
+      setModalOpen(false);
+      load();
+    } catch (err) {
+      console.error("Failed to create task:", err);
+      notifyError("Create failed", "Could not create the task");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Apply status filter
   const filtered = tasks.filter((t) => {
@@ -148,6 +175,49 @@ export function TaskOverview({
     }));
 
   return (
+    <>
+      <Modal
+        opened={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="New Task"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && newTaskContent.trim()) {
+            handleSaveTask();
+          }
+        }}
+      >
+        <Stack gap="md">
+          <TextInput
+            ref={contentInputRef}
+            label="Task"
+            placeholder="What needs to be done?"
+            value={newTaskContent}
+            onChange={(e) => setNewTaskContent(e.currentTarget.value)}
+            autoFocus
+            required
+          />
+          <DateTimePicker
+            label="Due date (optional)"
+            placeholder="Pick a date and time"
+            value={newTaskDueDate}
+            onChange={setNewTaskDueDate}
+            clearable
+          />
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTask}
+              disabled={!newTaskContent.trim()}
+              loading={saving}
+            >
+              Save
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
     <div className={styles.container} data-testid="task-overview">
       <div className={styles.header}>
         <Title order={2}>Tasks</Title>
@@ -166,6 +236,9 @@ export function TaskOverview({
             w={140}
             allowDeselect={false}
           />
+          <Button size="sm" variant="light" onClick={handleOpenModal}>
+            + New Task
+          </Button>
         </div>
       </div>
 
@@ -220,5 +293,6 @@ export function TaskOverview({
         </div>
       )}
     </div>
+    </>
   );
 }

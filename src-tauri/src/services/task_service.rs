@@ -1,10 +1,11 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::db::tasks::NoteTask;
 use crate::error::{AppError, AppResult};
+use crate::services::note_service;
 
 /// Returned by `update_task_checked` so callers know which note was affected.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -461,6 +462,135 @@ pub fn update_task_checked(
     tx.commit()?;
 
     Ok(UpdateTaskCheckedResult { note_id })
+}
+
+/// Create a task in the special inbox note (title `__rnotes_inbox__`).
+/// Creates the inbox note if it does not exist.
+/// Appends a new taskItem to the note's TipTap JSON, calls `sync_tasks`,
+/// then updates `notify_at` on the resulting task row.
+/// Returns the new `NoteTask`.
+pub fn create_inbox_task(
+    conn: &Connection,
+    content: String,
+    notify_at: Option<i64>,
+) -> AppResult<NoteTask> {
+    const INBOX_TITLE: &str = "__rnotes_inbox__";
+
+    // 1. Find or create the inbox note.
+    let inbox_note_id: String = match conn.query_row(
+        "SELECT id FROM notes WHERE title = ?1 AND deleted_at IS NULL",
+        [INBOX_TITLE],
+        |row| row.get::<_, String>(0),
+    ) {
+        Ok(id) => id,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            let req = note_service::CreateNoteRequest {
+                parent_id: None,
+                title: INBOX_TITLE.to_string(),
+                is_folder: false,
+            };
+            note_service::create_note(conn, req)?.id
+        }
+        Err(e) => return Err(AppError::Database(e)),
+    };
+
+    // 2. Load current content and build updated TipTap JSON with new taskItem appended.
+    let raw_content: String = conn
+        .query_row(
+            "SELECT content FROM notes WHERE id = ?1",
+            [&inbox_note_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .map_err(AppError::Database)?
+        .unwrap_or_default();
+
+    let new_task_item = json!({
+        "type": "taskItem",
+        "attrs": { "checked": false },
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    { "type": "text", "text": content }
+                ]
+            }
+        ]
+    });
+
+    let updated_content: Value = match serde_json::from_str::<Value>(&raw_content) {
+        Ok(mut doc) if doc.get("type").and_then(|t| t.as_str()) == Some("doc") => {
+            // Valid TipTap doc — find or create a top-level taskList.
+            if let Some(doc_content) = doc.get_mut("content").and_then(|c| c.as_array_mut()) {
+                // Look for a taskList node at the top level.
+                let maybe_idx = doc_content
+                    .iter()
+                    .position(|n| n.get("type").and_then(|t| t.as_str()) == Some("taskList"));
+                if let Some(idx) = maybe_idx {
+                    // Append to existing taskList.
+                    if let Some(task_list_content) = doc_content[idx]
+                        .get_mut("content")
+                        .and_then(|c| c.as_array_mut())
+                    {
+                        task_list_content.push(new_task_item);
+                    }
+                } else {
+                    // No taskList — append a new one.
+                    doc_content.push(json!({
+                        "type": "taskList",
+                        "content": [new_task_item]
+                    }));
+                }
+                doc
+            } else {
+                // No content array in doc — build fresh.
+                json!({
+                    "type": "doc",
+                    "content": [{ "type": "taskList", "content": [new_task_item] }]
+                })
+            }
+        }
+        _ => {
+            // Not a valid TipTap doc (e.g. `{}`) — build from scratch.
+            json!({
+                "type": "doc",
+                "content": [{ "type": "taskList", "content": [new_task_item] }]
+            })
+        }
+    };
+
+    let updated_content_str = serde_json::to_string(&updated_content)
+        .map_err(|e| AppError::Config(format!("JSON serialization error: {e}")))?;
+
+    // 3. Persist the new content and sync tasks (note_service::update_note also calls sync_tasks).
+    note_service::update_note(conn, &inbox_note_id, INBOX_TITLE, &updated_content_str, "")?;
+
+    // 4. After sync_tasks the new task row has been inserted. Since the new task was appended
+    //    last, it will be the last row by created_at (all tasks for this sync share the same
+    //    timestamp, but our task is the final item in document order and thus the last inserted).
+    //    We match by content string — if multiple tasks share the same text, take the last one.
+    let tasks = get_tasks_for_note(conn, &inbox_note_id)?;
+    let task = tasks
+        .into_iter()
+        .filter(|t| t.content == content)
+        .last()
+        .ok_or_else(|| AppError::Config(format!("inbox task '{content}' not found after sync")))?;
+
+    // 5. Set notify_at if provided.
+    if notify_at.is_some() {
+        let now = now_ms();
+        conn.execute(
+            "UPDATE note_tasks SET notify_at = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![notify_at, now, task.id],
+        )
+        .map_err(AppError::Database)?;
+        return Ok(NoteTask {
+            notify_at,
+            updated_at: now,
+            ..task
+        });
+    }
+
+    Ok(task)
 }
 
 /// Get all tasks across all notes (for future task overview).
