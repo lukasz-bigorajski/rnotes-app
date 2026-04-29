@@ -44,6 +44,7 @@ import { Text, Checkbox, ActionIcon } from "@mantine/core";
 import { IconArrowUp } from "@tabler/icons-react";
 
 import classes from "./NoteEditor.module.css";
+import { editorFocusBridge } from "../../utils/editorFocusBridge";
 
 const lowlight = createLowlight(common);
 
@@ -98,6 +99,7 @@ interface NoteEditorProps {
   onNavigateToNote?: (noteId: string) => void;
   initialFindQuery?: string;
   onInitialFindQueryConsumed?: () => void;
+  focusEditorRef?: MutableRefObject<(() => void) | null>;
 }
 
 export function NoteEditor({
@@ -117,6 +119,7 @@ export function NoteEditor({
   onNavigateToNote,
   initialFindQuery,
   onInitialFindQueryConsumed,
+  focusEditorRef,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -471,6 +474,16 @@ export function NoteEditor({
       if (flushTitleSaveRef) flushTitleSaveRef.current = null;
     };
   }, [flushTitleSaveRef]);
+
+  useEffect(() => {
+    if (!focusEditorRef) return;
+    focusEditorRef.current = () => { editor?.commands.focus(); };
+    if (editor && editorFocusBridge.focusOnLoad) {
+      editorFocusBridge.focusOnLoad = false;
+      requestAnimationFrame(() => editor.commands.focus());
+    }
+    return () => { if (focusEditorRef) focusEditorRef.current = null; };
+  }, [focusEditorRef, editor]);
 
   // Back-to-top: show button when scrolled more than 400px inside the editor wrapper
   useEffect(() => {

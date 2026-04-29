@@ -15,6 +15,7 @@ interface ContentAreaProps {
   forceSaveRef?: MutableRefObject<(() => void) | null>;
   flushTitleSaveRef?: MutableRefObject<(() => void) | null>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
+  focusEditorRef?: MutableRefObject<(() => void) | null>;
   onNavigateToNote?: (noteId: string) => void;
   initialFindQuery?: string | null;
   onInitialFindQueryConsumed?: () => void;
@@ -26,6 +27,7 @@ export function ContentArea({
   forceSaveRef,
   flushTitleSaveRef,
   refreshActiveNoteRef,
+  focusEditorRef,
   onNavigateToNote,
   initialFindQuery,
   onInitialFindQueryConsumed,
@@ -115,6 +117,7 @@ export function ContentArea({
         onTitleChange={handleTitleChange}
         forceSaveRef={forceSaveRef}
         flushTitleSaveRef={flushTitleSaveRef}
+        focusEditorRef={focusEditorRef}
         autoSaveIntervalMs={config.auto_save_interval_ms}
         fontSize={config.font_size}
         fontFamily={config.font_family}

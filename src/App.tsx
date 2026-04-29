@@ -34,6 +34,7 @@ function AppInner() {
   const [shortcutsDialogOpened, setShortcutsDialogOpened] = useState(false);
   const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
   const focusSidebarRef = useRef<(() => void) | null>(null);
+  const focusEditorRef = useRef<(() => void) | null>(null);
 
   useUpdater();
 
@@ -51,20 +52,24 @@ function AppInner() {
     setRecoveryKey((k) => k + 1);
   };
 
-  useHotkeys([
-    ["mod+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
-    ["ctrl+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
-    ["mod+shift+F", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
-    ["mod+shift+N", () => { setGlobalSearchTitleOnly(true); setGlobalSearchOpened(true); }],
-    ["mod+alt+N", () => createFolderRef.current?.()],
-    ["mod+shift+R", () => setGlobalFindReplaceOpened(true)],
-    ["mod+/", () => setShortcutsDialogOpened(true)],
-    ["mod+N", () => createNoteRef.current?.()],
-    ["mod+S", () => forceSaveRef.current?.()],
-    ["mod+\\", () => setSidebarVisible((v) => !v)],
-    ["mod+shift+T", () => handleShowTaskOverview()],
-    ["mod+1", () => focusSidebarRef.current?.()],
-  ]);
+  useHotkeys(
+    [
+      ["mod+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+      ["ctrl+K", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+      ["mod+shift+F", () => { setGlobalSearchTitleOnly(false); setGlobalSearchOpened(true); }],
+      ["mod+shift+N", () => { setGlobalSearchTitleOnly(true); setGlobalSearchOpened(true); }],
+      ["mod+alt+N", () => createFolderRef.current?.()],
+      ["mod+shift+R", () => setGlobalFindReplaceOpened(true)],
+      ["mod+/", () => setShortcutsDialogOpened(true)],
+      ["mod+N", () => createNoteRef.current?.()],
+      ["mod+S", () => forceSaveRef.current?.()],
+      ["mod+\\", () => setSidebarVisible((v) => !v)],
+      ["mod+shift+T", () => handleShowTaskOverview()],
+      ["mod+1", () => focusSidebarRef.current?.()],
+    ],
+    ["INPUT", "TEXTAREA", "SELECT"],
+    true,
+  );
 
   const handleNotesChanged = () => {
     sidebarRefreshRef.current?.();
@@ -139,6 +144,7 @@ function AppInner() {
               createNoteRef={createNoteRef}
               createFolderRef={createFolderRef}
               focusSidebarRef={focusSidebarRef}
+              focusEditorRef={focusEditorRef}
               onShowTaskOverview={handleShowTaskOverview}
               onShowNotes={handleShowNotes}
               onOpenGlobalSearch={() => setGlobalSearchOpened(true)}
@@ -153,6 +159,7 @@ function AppInner() {
           {activeView === "tasks" ? (
             <TaskOverview
               onNavigateToNote={handleNavigateToNote}
+              onBack={handleShowNotes}
               activeNoteId={activeNoteId}
               onNoteContentChanged={(_noteId) => {
                 // The editor is not mounted while the Tasks view is active (activeNoteId is null).
@@ -169,6 +176,7 @@ function AppInner() {
               forceSaveRef={forceSaveRef}
               flushTitleSaveRef={flushTitleSaveRef}
               refreshActiveNoteRef={refreshActiveNoteRef}
+              focusEditorRef={focusEditorRef}
               onNavigateToNote={handleNavigateToNote}
               initialFindQuery={pendingSearchQuery}
               onInitialFindQueryConsumed={() => setPendingSearchQuery(null)}

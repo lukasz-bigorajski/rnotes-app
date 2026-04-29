@@ -26,6 +26,7 @@ interface DraggableTreeProps {
   pendingRenameId?: string | null;
   onPendingRenameConsumed?: () => void;
   focusSidebarRef?: MutableRefObject<(() => void) | null>;
+  focusEditorRef?: MutableRefObject<(() => void) | null>;
 }
 
 export function DraggableTree({
@@ -38,6 +39,7 @@ export function DraggableTree({
   pendingRenameId,
   onPendingRenameConsumed,
   focusSidebarRef,
+  focusEditorRef,
 }: DraggableTreeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -188,6 +190,7 @@ export function DraggableTree({
         pendingRenameId={pendingRenameId}
         onPendingRenameConsumed={onPendingRenameConsumed}
         focusSidebarRef={focusSidebarRef}
+        focusEditorRef={focusEditorRef}
       />
 
       <DragOverlay

@@ -29,6 +29,7 @@ interface SidebarProps {
   createFolderRef?: MutableRefObject<(() => void) | null>;
   refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
   focusSidebarRef?: MutableRefObject<(() => void) | null>;
+  focusEditorRef?: MutableRefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
   onShowNotes?: () => void;
   onOpenGlobalSearch?: () => void;
@@ -44,6 +45,7 @@ export function Sidebar({
   createFolderRef,
   refreshActiveNoteRef,
   focusSidebarRef,
+  focusEditorRef,
   onShowTaskOverview,
   onShowNotes,
   onOpenGlobalSearch,
@@ -248,6 +250,7 @@ export function Sidebar({
                 pendingRenameId={pendingRenameId}
                 onPendingRenameConsumed={() => setPendingRenameId(null)}
                 focusSidebarRef={focusSidebarRef}
+                focusEditorRef={focusEditorRef}
               />
             )}
           </>

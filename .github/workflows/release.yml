@@ -55,6 +55,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
+      - name: Set version from tag
+        run: node -e "const fs=require('fs'),c=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'));c.version=process.env.GITHUB_REF_NAME.replace(/^v/,'');fs.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n')"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:

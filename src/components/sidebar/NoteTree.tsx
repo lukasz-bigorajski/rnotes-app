@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { editorFocusBridge } from "../../utils/editorFocusBridge";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
@@ -25,6 +26,7 @@ interface NoteTreeProps {
   pendingRenameId?: string | null;
   onPendingRenameConsumed?: () => void;
   focusSidebarRef?: MutableRefObject<(() => void) | null>;
+  focusEditorRef?: MutableRefObject<(() => void) | null>;
 }
 
 // ---- Helper functions for keyboard navigation ----
@@ -245,6 +247,7 @@ export function NoteTree({
   pendingRenameId,
   onPendingRenameConsumed,
   focusSidebarRef,
+  focusEditorRef,
 }: NoteTreeProps) {
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
@@ -406,7 +409,10 @@ export function NoteTree({
           e.preventDefault();
           if (node?.children?.length) {
             tree.toggleExpanded(currentId);
+          } else if (currentId === activeNoteId) {
+            focusEditorRef?.current?.();
           } else {
+            editorFocusBridge.focusOnLoad = true;
             setActiveNoteId(currentId);
           }
           break;
@@ -468,7 +474,7 @@ export function NoteTree({
       onKeyDown={handleTreeKeyDown}
       onFocus={() => {
         if (focusedNodeId === null) {
-          setFocusedNodeId(activeNoteId);
+          setFocusedNodeId(activeNoteId ?? treeData[0]?.value ?? null);
         }
       }}
       onBlur={() => setFocusedNodeId(null)}

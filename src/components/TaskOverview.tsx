@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Text, Title, SegmentedControl, Select, Checkbox, Badge, Stack, Group, Button, Modal, TextInput } from "@mantine/core";
+import { Text, Title, SegmentedControl, Select, Checkbox, Badge, Stack, Group, Button, Modal, TextInput, ActionIcon } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { DateTimePicker } from "@mantine/dates";
 import { IconNotes } from "@tabler/icons-react";
 import dayjs from "dayjs";
@@ -12,6 +13,7 @@ interface TaskOverviewProps {
   onNavigateToNote: (noteId: string) => void;
   activeNoteId?: string | null;
   onNoteContentChanged?: (noteId: string) => void;
+  onBack?: () => void;
 }
 
 type StatusFilter = "All" | "Open" | "Completed";
@@ -59,6 +61,7 @@ export function TaskOverview({
   onNavigateToNote,
   activeNoteId,
   onNoteContentChanged,
+  onBack,
 }: TaskOverviewProps) {
   const [tasks, setTasks] = useState<NoteTaskWithNote[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
@@ -220,7 +223,14 @@ export function TaskOverview({
 
     <div className={styles.container} data-testid="task-overview">
       <div className={styles.header}>
-        <Title order={2}>Tasks</Title>
+        <Group gap="xs">
+          {onBack && (
+            <ActionIcon variant="subtle" onClick={onBack} title="Back to notes">
+              <IconArrowLeft size={18} />
+            </ActionIcon>
+          )}
+          <Title order={2}>Tasks</Title>
+        </Group>
         <div className={styles.filters}>
           <SegmentedControl
             value={statusFilter}
@@ -276,15 +286,17 @@ export function TaskOverview({
                         {dateLabel}
                       </Badge>
                     )}
-                    <Group gap={4}>
-                      <span
-                        className={styles.noteLink}
-                        onClick={() => onNavigateToNote(task.note_id)}
-                        data-testid="task-note-link"
-                      >
-                        {task.note_title}
-                      </span>
-                    </Group>
+                    {!task.note_title.startsWith("__rnotes_") && (
+                      <Group gap={4}>
+                        <span
+                          className={styles.noteLink}
+                          onClick={() => onNavigateToNote(task.note_id)}
+                          data-testid="task-note-link"
+                        >
+                          {task.note_title}
+                        </span>
+                      </Group>
+                    )}
                   </div>
                 );
               })}
