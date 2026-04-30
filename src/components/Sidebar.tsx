@@ -12,6 +12,7 @@ import {
   IconNote,
   IconArchive,
   IconNotes,
+  IconLayoutSidebarLeftCollapse,
 } from "@tabler/icons-react";
 import { createNote, listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
@@ -35,6 +36,7 @@ interface SidebarProps {
   onOpenGlobalSearch?: () => void;
   onOpenShortcutsDialog?: () => void;
   onShowSettings?: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export function Sidebar({
@@ -51,6 +53,7 @@ export function Sidebar({
   onOpenGlobalSearch,
   onOpenShortcutsDialog,
   onShowSettings,
+  onToggleSidebar,
 }: SidebarProps) {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [activeTab, setActiveTab] = useState<SidebarTab>("notes");
@@ -325,6 +328,18 @@ export function Sidebar({
               data-testid="open-settings-btn"
             >
               <IconSettings size={16} />
+            </ActionIcon>
+          )}
+          {onToggleSidebar && (
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Collapse sidebar (Cmd+\)"
+              aria-label="Collapse sidebar"
+              onClick={onToggleSidebar}
+              data-testid="collapse-sidebar-btn"
+            >
+              <IconLayoutSidebarLeftCollapse size={16} />
             </ActionIcon>
           )}
         </Group>

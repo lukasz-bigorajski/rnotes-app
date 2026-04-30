@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { AppShell } from "@mantine/core";
+import { AppShell, ActionIcon } from "@mantine/core";
 import { useDisclosure, useHotkeys } from "@mantine/hooks";
+import { IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import { Sidebar } from "./components/Sidebar";
 import { ContentArea } from "./components/ContentArea";
 import { TaskOverview } from "./components/TaskOverview";
@@ -107,6 +108,7 @@ function AppInner() {
     setPendingSearchQuery(query || null);
     handleSetActiveNoteId(noteId);
     setGlobalSearchOpened(false);
+    setTimeout(() => focusEditorRef.current?.(), 150);
   };
 
   return (
@@ -151,11 +153,25 @@ function AppInner() {
               onOpenShortcutsDialog={() => setShortcutsDialogOpened(true)}
               onShowSettings={handleShowSettings}
               refreshActiveNoteRef={refreshActiveNoteRef}
+              onToggleSidebar={() => setSidebarVisible((v) => !v)}
             />
           </AppShell.Navbar>
         )}
 
-        <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100dvh" }}>
+        <AppShell.Main style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100dvh", position: "relative" }}>
+          {!sidebarVisible && activeView !== "tasks" && (
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Expand sidebar (Cmd+\)"
+              aria-label="Expand sidebar"
+              onClick={() => setSidebarVisible((v) => !v)}
+              style={{ position: "absolute", top: 8, left: 8, zIndex: 100 }}
+              data-testid="expand-sidebar-btn"
+            >
+              <IconLayoutSidebarLeftExpand size={16} />
+            </ActionIcon>
+          )}
           {activeView === "tasks" ? (
             <TaskOverview
               onNavigateToNote={handleNavigateToNote}
@@ -180,6 +196,7 @@ function AppInner() {
               onNavigateToNote={handleNavigateToNote}
               initialFindQuery={pendingSearchQuery}
               onInitialFindQueryConsumed={() => setPendingSearchQuery(null)}
+              onOpenGlobalSearch={() => { setGlobalSearchTitleOnly(true); setGlobalSearchOpened(true); }}
             />
           )}
         </AppShell.Main>

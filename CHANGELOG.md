@@ -2,6 +2,19 @@
 
 All notable changes to rnotes-app are documented here.
 
+## [0.0.4] - 2026-04-29
+
+### Added
+
+- **Sidebar tree keyboard navigation** — navigate visible nodes with arrow keys, expand/collapse folders with Right/Left, open notes or toggle folders with Enter, rename with F2, archive with Delete; `Mod+1` focuses the tree on the active note
+- **Create inbox task** — a `+ New Task` button in the Tasks tab opens a modal to create tasks without needing a note; tasks are stored in a hidden `__rnotes_inbox__` note (filtered from the sidebar)
+- **Tasks tab full-width layout** — the sidebar is hidden automatically when the Tasks tab is active, giving more room to the task overview
+
+### Fixed
+
+- Tree navigation focus and keyboard handling edge cases
+- Task lists view rendering in the overview panel
+
 ## [0.0.3] - 2026-04-26
 
 ### Added

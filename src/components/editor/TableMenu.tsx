@@ -46,8 +46,12 @@ export function TableMenu({ editor }: TableMenuProps) {
 
     const tableRect = tableEl.getBoundingClientRect();
 
+    // Clamp so the button stays visible even when the table scrolls out of view at the top.
+    // Keep it pinned at 8px from the top of the viewport minimum.
+    const clampedTop = Math.max(8, tableRect.top - 4);
+
     setPosition({
-      top: tableRect.top - 4,
+      top: clampedTop,
       left: tableRect.right + 4,
     });
     setVisible(true);
@@ -55,9 +59,22 @@ export function TableMenu({ editor }: TableMenuProps) {
 
   useEffect(() => {
     editor.on("selectionUpdate", updatePosition);
+    editor.on("update", updatePosition);
     return () => {
       editor.off("selectionUpdate", updatePosition);
+      editor.off("update", updatePosition);
     };
+  }, [editor, updatePosition]);
+
+  // Re-position on scroll so the button tracks the table as the user scrolls.
+  useEffect(() => {
+    const editorEl = editor.view?.dom;
+    if (!editorEl) return;
+    const scrollParent = editorEl.closest("[data-overlayscrollbars-viewport]") ?? editorEl.parentElement;
+    if (!scrollParent) return;
+    const handleScroll = () => updatePosition();
+    scrollParent.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollParent.removeEventListener("scroll", handleScroll);
   }, [editor, updatePosition]);
 
   if (!visible) return null;

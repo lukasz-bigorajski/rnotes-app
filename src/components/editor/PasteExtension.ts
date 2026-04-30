@@ -9,8 +9,8 @@ export function isMarkdownContent(text: string): boolean {
   // Check for common markdown patterns
   const patterns = [
     /^#{1,6}\s/m, // Headings: # ## ### etc
-    /\*\*[^\*]+\*\*/, // Bold: **text**
-    /\*[^\*]+\*/, // Italic: *text*
+    /\*\*[^*]+\*\*/, // Bold: **text**
+    /\*[^*]+\*/, // Italic: *text*
     /__[^_]+__/, // Bold: __text__
     /_[^_]+_/, // Italic: _text_
     /^\s*[-*+]\s/m, // Unordered lists: - * +

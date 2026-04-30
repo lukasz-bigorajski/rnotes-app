@@ -19,6 +19,7 @@ interface ContentAreaProps {
   onNavigateToNote?: (noteId: string) => void;
   initialFindQuery?: string | null;
   onInitialFindQueryConsumed?: () => void;
+  onOpenGlobalSearch?: () => void;
 }
 
 export function ContentArea({
@@ -31,6 +32,7 @@ export function ContentArea({
   onNavigateToNote,
   initialFindQuery,
   onInitialFindQueryConsumed,
+  onOpenGlobalSearch,
 }: ContentAreaProps) {
   const { note, loading, saveNote, updateTitle, refreshNote } = useActiveNote(activeNoteId);
 
@@ -125,6 +127,7 @@ export function ContentArea({
         onNavigateToNote={onNavigateToNote}
         initialFindQuery={findQueryForEditor}
         onInitialFindQueryConsumed={onInitialFindQueryConsumed}
+        onOpenGlobalSearch={onOpenGlobalSearch}
       />
     </div>
   );

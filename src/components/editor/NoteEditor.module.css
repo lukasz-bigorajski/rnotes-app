@@ -218,7 +218,7 @@
 .editorContent :global(.tiptap ul),
 .editorContent :global(.tiptap ol) {
   margin: 2px 0;
-  padding-left: 20px;
+  padding-left: 1.5rem;
 }
 
 /* ── Task Lists ── */
@@ -297,7 +297,7 @@
 }
 
 .editorContent :global(.tiptap li) {
-  margin: 0;
+  margin: 2px 0;
   padding: 0;
 }
 

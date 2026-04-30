@@ -21,6 +21,12 @@ export const EmojiExtension = Extension.create({
         // Require at least 1 character after : before showing suggestions
         allowedPrefixes: null,
 
+        allow({ editor }: { editor: { isActive: (name: string) => boolean } }) {
+          // Do not trigger emoji picker when the cursor is inside a link mark
+          return !editor.isActive("link");
+        },
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         command({ editor, range, props }: { editor: any; range: any; props: EmojiEntry }) {
           editor
             .chain()
@@ -39,6 +45,7 @@ export const EmojiExtension = Extension.create({
           let popup: TippyInstance[];
 
           return {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onStart(props: any) {
               renderer = new ReactRenderer(EmojiList, {
                 props,
@@ -58,6 +65,7 @@ export const EmojiExtension = Extension.create({
               });
             },
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onUpdate(props: any) {
               renderer.updateProps(props);
 
@@ -68,6 +76,7 @@ export const EmojiExtension = Extension.create({
               });
             },
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onKeyDown(props: any) {
               if (props.event.key === "Escape") {
                 popup[0].hide();

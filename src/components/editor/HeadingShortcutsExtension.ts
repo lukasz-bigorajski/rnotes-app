@@ -11,6 +11,7 @@ export const HeadingShortcutsExtension = Extension.create({
         props: {
           handleDOMEvents: {
             // Use beforeinput event to catch text before it's processed
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             beforeinput: (view, event: any) => {
               if (event.inputType !== "insertText" || event.data === null) {
                 return false;
@@ -41,6 +42,7 @@ export const HeadingShortcutsExtension = Extension.create({
 
               // Find the paragraph node position
               let paraPos = 0;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               state.doc.nodesBetween(0, state.selection.from + 1, (node: any, pos: number) => {
                 if (node.type.name === "paragraph") {
                   paraPos = pos;

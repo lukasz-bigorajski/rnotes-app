@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -100,6 +100,7 @@ interface NoteEditorProps {
   initialFindQuery?: string;
   onInitialFindQueryConsumed?: () => void;
   focusEditorRef?: MutableRefObject<(() => void) | null>;
+  onOpenGlobalSearch?: () => void;
 }
 
 export function NoteEditor({
@@ -120,6 +121,7 @@ export function NoteEditor({
   initialFindQuery,
   onInitialFindQueryConsumed,
   focusEditorRef,
+  onOpenGlobalSearch,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -166,6 +168,7 @@ export function NoteEditor({
       StarterKit.configure({
         codeBlock: false,
         link: {
+          autolink: false,
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
           protocols: [{ scheme: "rnotes", optionalSlashes: true }],
@@ -273,6 +276,19 @@ export function NoteEditor({
       LineOperationsExtension,
       QuoteWrapExtension,
       EmojiExtension,
+      // Custom extension: forward Mod+Shift+N to the global search handler even when the
+      // editor is focused (ProseMirror consumes keyboard events before they bubble to document).
+      Extension.create({
+        name: "globalSearchShortcut",
+        addKeyboardShortcuts() {
+          return {
+            "Mod-Shift-n": () => {
+              onOpenGlobalSearch?.();
+              return true;
+            },
+          };
+        },
+      }),
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
@@ -758,6 +774,8 @@ export function NoteEditor({
           onClose={() => {
             setFindBarOpen(false);
             setActiveFindQuery(undefined);
+            // Refocus the editor without scrolling so the viewport stays in place.
+            editor.commands.focus(undefined, { scrollIntoView: false });
           }}
           initialQuery={activeFindQuery}
         />
