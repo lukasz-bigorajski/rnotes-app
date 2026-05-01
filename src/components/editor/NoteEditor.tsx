@@ -31,6 +31,9 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
 import { getImageUrl } from "../../ipc/assets";
 import { Markdown } from "tiptap-markdown";
+import Typography from "@tiptap/extension-typography";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import { PasteExtension, isMarkdownContent } from "./PasteExtension";
 import {
   classifyLink,
@@ -276,6 +279,9 @@ export function NoteEditor({
       LineOperationsExtension,
       QuoteWrapExtension,
       EmojiExtension,
+      Typography,
+      TextStyle,
+      Color,
       // Custom extension: forward Mod+Shift+N to the global search handler even when the
       // editor is focused (ProseMirror consumes keyboard events before they bubble to document).
       Extension.create({

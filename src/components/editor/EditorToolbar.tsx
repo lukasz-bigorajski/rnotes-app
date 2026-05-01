@@ -1,13 +1,16 @@
 import {
   ActionIcon,
+  ColorSwatch,
   Group,
   Menu,
   Popover,
   Portal,
   SegmentedControl,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { TextSelection } from "@tiptap/pm/state";
@@ -32,6 +35,8 @@ import {
   IconPhoto,
   IconTable,
   IconDownload,
+  IconEraser,
+  IconColorSwatch,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
@@ -353,6 +358,57 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
         >
           <IconCode size={16} />
         </ActionIcon>
+
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+          title="Clear Formatting"
+          disabled={editor.state.selection.empty && !editor.isActive("bold") && !editor.isActive("italic") && !editor.isActive("strike") && !editor.isActive("code") && !editor.isActive("link") && !editor.isActive("textStyle")}
+        >
+          <IconEraser size={16} />
+        </ActionIcon>
+
+        <Popover position="bottom" withArrow withinPortal>
+          <Popover.Target>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              title="Text Color"
+              style={editor.isActive("textStyle") ? { color: editor.getAttributes("textStyle").color as string | undefined } : undefined}
+            >
+              <IconColorSwatch size={16} />
+            </ActionIcon>
+          </Popover.Target>
+          <Popover.Dropdown p={8}>
+            <SimpleGrid cols={5} spacing={4}>
+              {[
+                "#e03131", "#f76707", "#2f9e44", "#1971c2", "#7048e8",
+                "#c2255c", "#f08c00", "#099268", "#0c8599", "#343a40",
+              ].map((color) => (
+                <Tooltip key={color} label={color} position="top" withArrow>
+                  <ColorSwatch
+                    color={color}
+                    size={20}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => editor.chain().focus().setColor(color).run()}
+                  />
+                </Tooltip>
+              ))}
+            </SimpleGrid>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              mt={6}
+              onClick={() => editor.chain().focus().unsetColor().run()}
+              title="Remove Color"
+              style={{ width: "100%" }}
+            >
+              <IconEraser size={14} />
+              <Text size="xs" ml={4}>Remove color</Text>
+            </ActionIcon>
+          </Popover.Dropdown>
+        </Popover>
 
         <div className={classes.separator} />
 
