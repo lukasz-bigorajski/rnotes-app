@@ -37,6 +37,13 @@ function AppInner() {
   const focusSidebarRef = useRef<(() => void) | null>(null);
   const focusEditorRef = useRef<(() => void) | null>(null);
 
+  const [sidebarWidth, setSidebarWidth] = useState(
+    () => Number(localStorage.getItem("sidebarWidth")) || 260,
+  );
+  const isResizingRef = useRef(false);
+  const sidebarWidthRef = useRef(sidebarWidth);
+  const [dragHandleHovered, setDragHandleHovered] = useState(false);
+
   useUpdater();
 
   useEffect(() => {
@@ -46,6 +53,41 @@ function AppInner() {
         // If we can't get health, assume ok (app loaded normally).
       });
   }, []);
+
+  // Keep ref in sync with state so the mouseup handler can read the latest width.
+  useEffect(() => {
+    sidebarWidthRef.current = sidebarWidth;
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newWidth = Math.min(480, Math.max(160, e.clientX));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (!isResizingRef.current) return;
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem("sidebarWidth", String(sidebarWidthRef.current));
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const handleDragHandleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   const handleRecovered = () => {
     setAppHealth("recovered");
@@ -130,14 +172,14 @@ function AppInner() {
       />
       <AppShell
         navbar={{
-          width: 280,
+          width: { base: sidebarWidth },
           breakpoint: "sm",
           collapsed: { mobile: !opened, desktop: !sidebarVisible || activeView === "tasks" },
         }}
         padding={0}
       >
         {sidebarVisible && activeView !== "tasks" && (
-          <AppShell.Navbar p="sm">
+          <AppShell.Navbar p="sm" style={{ position: "relative", overflow: "visible" }}>
             <Sidebar
               key={recoveryKey}
               activeNoteId={activeNoteId}
@@ -154,6 +196,22 @@ function AppInner() {
               onShowSettings={handleShowSettings}
               refreshActiveNoteRef={refreshActiveNoteRef}
               onToggleSidebar={() => setSidebarVisible((v) => !v)}
+            />
+            <div
+              onMouseDown={handleDragHandleMouseDown}
+              onMouseEnter={() => setDragHandleHovered(true)}
+              onMouseLeave={() => setDragHandleHovered(false)}
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                width: 5,
+                height: "100%",
+                cursor: "col-resize",
+                background: dragHandleHovered ? "var(--mantine-color-gray-3)" : "transparent",
+                transition: "background 0.15s",
+                zIndex: 200,
+              }}
             />
           </AppShell.Navbar>
         )}
