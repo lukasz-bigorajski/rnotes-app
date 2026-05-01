@@ -38,3 +38,35 @@ pub fn get_image_url(app: AppHandle, asset_path: String) -> Result<String, Strin
     let full_path = data_dir.join(&asset_path);
     Ok(full_path.to_string_lossy().to_string())
 }
+
+#[derive(serde::Serialize)]
+pub struct AssetInfo {
+    pub name: String,
+    pub size: u64,
+    pub absolute_path: String,
+}
+
+/// Return metadata for a relative asset path: filename, size in bytes, and absolute path.
+#[tauri::command]
+pub fn get_asset_info(app: AppHandle, asset_path: String) -> Result<AssetInfo, String> {
+    use crate::services::config_service;
+
+    let data_dir = config_service::resolve_data_dir(&app).map_err(|e| e.to_string())?;
+    let full_path = data_dir.join(&asset_path);
+
+    let name = full_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let size = std::fs::metadata(&full_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    Ok(AssetInfo {
+        name,
+        size,
+        absolute_path: full_path.to_string_lossy().to_string(),
+    })
+}

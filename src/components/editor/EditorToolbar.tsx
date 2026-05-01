@@ -43,7 +43,7 @@ import type { JSONContent } from "@tiptap/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import classes from "./EditorToolbar.module.css";
 import type { TocHeading } from "./TocExtension";
-import { saveImage, getImageUrl } from "../../ipc/assets";
+import { saveImage } from "../../ipc/assets";
 import { exportNoteAsJson, exportNoteAsPdf } from "../../utils/exportNote";
 import { searchNotes } from "../../ipc/notes";
 import type { SearchResult } from "../../ipc/notes";
@@ -252,8 +252,9 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
         const assetPath = await saveImage({ noteId, filename: file.name, data });
-        const imageUrl = await getImageUrl(assetPath);
-        editor.chain().focus().setImage({ src: imageUrl, alt: file.name }).run();
+        // Store the relative asset path in the JSON (e.g. `assets/{note_id}/{uuid}.png`).
+        // ImageNodeView resolves it to an absolute asset:// URL at render time.
+        editor.chain().focus().setImage({ src: assetPath, alt: file.name }).run();
       } catch (err) {
         console.error("Failed to insert image:", err);
       } finally {

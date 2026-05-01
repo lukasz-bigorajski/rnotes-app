@@ -53,13 +53,18 @@ pub fn check_and_send_notifications(app_handle: &AppHandle, conn: &Connection) -
     for task in &due_tasks {
         let body = format!("{} — {}", task.note_title, task.content);
 
-        // Send OS notification
-        let _ = app_handle
+        // Send OS notification.
+        // On Linux this requires libnotify / libdbus-1 to be installed.
+        // If it fails (e.g. missing dbus on a headless system) we log and continue.
+        if let Err(e) = app_handle
             .notification()
             .builder()
             .title("Task Reminder")
             .body(&body)
-            .show();
+            .show()
+        {
+            eprintln!("notification send failed (task {}): {}", task.id, e);
+        }
 
         // Mark as notified
         conn.execute(

@@ -29,7 +29,7 @@ import { SaveStatusIndicator } from "./SaveStatusIndicator";
 import type { JSONContent } from "@tiptap/react";
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
-import { getImageUrl } from "../../ipc/assets";
+
 import { Markdown } from "tiptap-markdown";
 import Typography from "@tiptap/extension-typography";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -51,32 +51,6 @@ import { editorFocusBridge } from "../../utils/editorFocusBridge";
 
 const lowlight = createLowlight(common);
 
-/**
- * Traverse TipTap JSON and resolve relative asset paths to absolute URLs.
- * Relative paths look like `assets/{note_id}/{filename}`.
- */
-async function resolveImageUrls(content: JSONContent): Promise<JSONContent> {
-  const RELATIVE_ASSET_RE = /^assets\//;
-
-  async function walk(node: JSONContent): Promise<JSONContent> {
-    if (node.type === "image" && node.attrs?.src && RELATIVE_ASSET_RE.test(node.attrs.src as string)) {
-      try {
-        const url = await getImageUrl(node.attrs.src as string);
-        return { ...node, attrs: { ...node.attrs, src: url } };
-      } catch {
-        // If resolution fails keep the original src; the image just won't load.
-        return node;
-      }
-    }
-    if (node.content) {
-      const resolved = await Promise.all(node.content.map(walk));
-      return { ...node, content: resolved };
-    }
-    return node;
-  }
-
-  return walk(content);
-}
 
 const FONT_FAMILY_MAP: Record<string, string> = {
   system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -330,23 +304,6 @@ export function NoteEditor({
       }
     };
   }, [editor]);
-
-  // When a note is loaded, resolve any relative asset paths to absolute URLs.
-  useEffect(() => {
-    if (!editor || !content) return;
-    let cancelled = false;
-
-    resolveImageUrls(content).then((resolved) => {
-      if (!cancelled && editor) {
-        editor.commands.setContent(resolved, { emitUpdate: false });
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-    // Only re-run when the note itself changes, not on every content update.
-  }, [noteId]);
 
   // Intercept link clicks in the editor
   const onNavigateToNoteRef = useRef(onNavigateToNote);

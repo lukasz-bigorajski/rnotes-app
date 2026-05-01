@@ -146,6 +146,7 @@ pub fn run() {
             commands::config_commands::update_user_config,
             commands::assets::save_image,
             commands::assets::get_image_url,
+            commands::assets::get_asset_info,
             commands::task_commands::get_note_tasks,
             commands::task_commands::get_all_tasks,
             commands::task_commands::update_task_checked,

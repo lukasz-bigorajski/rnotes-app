@@ -1,6 +1,9 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
+import { Modal, Text, Stack, Group, Badge } from "@mantine/core";
+import { getImageUrl, getAssetInfo } from "../../ipc/assets";
+import type { AssetInfo } from "../../ipc/assets";
 import classes from "./ImageNodeView.module.css";
 
 const MIN_WIDTH = 50;
@@ -16,13 +19,24 @@ interface ResizeState {
   aspectRatio: number;
 }
 
+const RELATIVE_ASSET_RE = /^assets\//;
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /**
  * Custom TipTap NodeView for images with:
  * - Resize handles on corners and edges (hold Shift to ignore aspect ratio lock)
  * - Alignment controls (left / center / right)
  * - ProseMirror draggable support (drag-to-reposition)
+ * - Right-click "Image info" modal (filename, size, dimensions, path)
  *
- * Dimensions are stored as node attributes so they persist in JSON.
+ * `src` stores the relative asset path (`assets/{note_id}/{uuid}.png`).
+ * URL resolution happens here at render time — never written back to node attrs,
+ * so the DB always holds the portable relative path.
  */
 export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProps) {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -33,6 +47,24 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
   const width = node.attrs.width as number | null | undefined;
   const height = node.attrs.height as number | null | undefined;
   const align = (node.attrs.align as string | undefined) ?? "center";
+
+  // Resolved display URL — relative asset paths resolved via IPC; absolute URLs used as-is.
+  const [displaySrc, setDisplaySrc] = useState<string>(src);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [assetInfo, setAssetInfo] = useState<AssetInfo | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (RELATIVE_ASSET_RE.test(src)) {
+      getImageUrl(src)
+        .then(setDisplaySrc)
+        .catch(() => {
+          /* broken image is visible feedback; leave displaySrc as relative path */
+        });
+    } else {
+      setDisplaySrc(src);
+    }
+  }, [src]);
 
   // --- Resize logic ---
   const startResize = useCallback(
@@ -72,20 +104,17 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
       let newWidth = startWidth;
       let newHeight = startHeight;
 
-      // Compute new dimensions based on drag direction
       if (direction.includes("E")) newWidth = startWidth + dx;
       if (direction.includes("W")) newWidth = startWidth - dx;
       if (direction.includes("S")) newHeight = startHeight + dy;
       if (direction.includes("N")) newHeight = startHeight - dy;
 
-      // Maintain aspect ratio unless Shift is held (free resize)
       if (!e.shiftKey) {
         if (direction === "N" || direction === "S") {
           newWidth = newHeight * aspectRatio;
         } else if (direction === "E" || direction === "W") {
           newHeight = newWidth / aspectRatio;
         } else {
-          // Corner — use the larger delta to determine scale
           const scaleW = newWidth / startWidth;
           const scaleH = newHeight / startHeight;
           const scale = Math.max(scaleW, scaleH);
@@ -97,7 +126,6 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
       newWidth = Math.max(MIN_WIDTH, Math.round(newWidth));
       newHeight = Math.max(Math.round((MIN_WIDTH / aspectRatio) * 1), Math.round(newHeight));
 
-      // Live preview: update the img element style directly (avoid re-render on every pixel)
       if (imgRef.current) {
         imgRef.current.style.width = `${newWidth}px`;
         imgRef.current.style.height = `${newHeight}px`;
@@ -109,12 +137,10 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
       if (!state) return;
       resizeStateRef.current = null;
 
-      // Commit final dimensions to TipTap attributes
       if (imgRef.current) {
         const img = imgRef.current;
         const finalWidth = Math.round(parseFloat(img.style.width) || state.startWidth);
         const finalHeight = Math.round(parseFloat(img.style.height) || state.startHeight);
-        // Clear inline style — let attr-driven sizing take over
         img.style.width = "";
         img.style.height = "";
         updateAttributes({ width: finalWidth, height: finalHeight });
@@ -141,13 +167,33 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
     [updateAttributes],
   );
 
+  // --- Image info modal ---
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const img = imgRef.current;
+      setNaturalSize(img ? { w: img.naturalWidth, h: img.naturalHeight } : null);
+
+      if (RELATIVE_ASSET_RE.test(src)) {
+        getAssetInfo(src)
+          .then(setAssetInfo)
+          .catch(() => setAssetInfo(null));
+      } else {
+        setAssetInfo(null);
+      }
+
+      setInfoOpen(true);
+    },
+    [src],
+  );
+
   const wrapperClass = [classes.imageWrapper, selected ? classes.selected : ""]
     .filter(Boolean)
     .join(" ");
 
   return (
-    // data-drag-handle makes the whole wrapper draggable via ProseMirror's
-    // drag-and-drop mechanism when draggable:true is set on the NodeView.
     <NodeViewWrapper
       as="span"
       className={wrapperClass}
@@ -209,7 +255,7 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
       {/* The image element */}
       <img
         ref={imgRef}
-        src={src}
+        src={displaySrc}
         alt={alt}
         width={width ?? undefined}
         height={height ?? undefined}
@@ -218,6 +264,7 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
           height: height ? `${height}px` : undefined,
         }}
         draggable={false}
+        onContextMenu={handleContextMenu}
         data-testid="image-element"
       />
 
@@ -270,6 +317,49 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
         contentEditable={false}
         data-testid="image-handle-e"
       />
+
+      {/* Image info modal */}
+      <Modal
+        opened={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        title="Image info"
+        size="md"
+        contentEditable={false}
+      >
+        <Stack gap="xs">
+          {assetInfo && (
+            <>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Filename</Text>
+                <Text size="sm" ff="monospace">{assetInfo.name}</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">File size</Text>
+                <Badge variant="light">{formatBytes(assetInfo.size)}</Badge>
+              </Group>
+              <Group justify="space-between" align="flex-start">
+                <Text size="sm" c="dimmed">Path</Text>
+                <Text
+                  size="xs"
+                  ff="monospace"
+                  style={{ wordBreak: "break-all", textAlign: "right", maxWidth: "70%" }}
+                >
+                  {assetInfo.absolutePath}
+                </Text>
+              </Group>
+            </>
+          )}
+          {naturalSize && (
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">Dimensions</Text>
+              <Badge variant="light">{naturalSize.w} × {naturalSize.h} px</Badge>
+            </Group>
+          )}
+          {!assetInfo && !naturalSize && (
+            <Text size="sm" c="dimmed">No info available for this image.</Text>
+          )}
+        </Stack>
+      </Modal>
     </NodeViewWrapper>
   );
 }

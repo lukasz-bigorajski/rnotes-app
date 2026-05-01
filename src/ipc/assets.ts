@@ -24,3 +24,13 @@ export async function getImageUrl(assetPath: string): Promise<string> {
   const absolutePath = await invoke<string>("get_image_url", { assetPath });
   return convertFileSrc(absolutePath);
 }
+
+export interface AssetInfo {
+  name: string;
+  size: number;
+  absolutePath: string;
+}
+
+export async function getAssetInfo(assetPath: string): Promise<AssetInfo> {
+  return invoke<AssetInfo>("get_asset_info", { assetPath });
+}
