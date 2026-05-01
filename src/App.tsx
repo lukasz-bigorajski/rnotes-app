@@ -179,7 +179,7 @@ function AppInner() {
         padding={0}
       >
         {sidebarVisible && activeView !== "tasks" && (
-          <AppShell.Navbar p="sm" style={{ position: "relative", overflow: "visible" }}>
+          <AppShell.Navbar p="sm" style={{ overflow: "visible" }}>
             <Sidebar
               key={recoveryKey}
               activeNoteId={activeNoteId}
