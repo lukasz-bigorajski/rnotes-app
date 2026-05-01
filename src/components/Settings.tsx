@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Title,
   Text,
@@ -23,6 +23,8 @@ import { exportAll, importAll } from "../ipc/backup";
 import type { ImportMode } from "../ipc/backup";
 import { listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
+import { getVersion } from "@tauri-apps/api/app";
+import { checkForUpdates } from "../hooks/useUpdater";
 import classes from "./Settings.module.css";
 
 const FONT_FAMILY_OPTIONS = [
@@ -40,11 +42,26 @@ export function Settings() {
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dataMessage, setDataMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [dataLoading, setDataLoading] = useState<"export" | "import" | null>(null);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
 
   const showSaved = useCallback(() => {
     setSavedVisible(true);
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     savedTimerRef.current = setTimeout(() => setSavedVisible(false), 2000);
+  }, []);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
+
+  const handleCheckForUpdates = useCallback(async () => {
+    setUpdateChecking(true);
+    try {
+      await checkForUpdates();
+    } finally {
+      setUpdateChecking(false);
+    }
   }, []);
 
   const handleChange = useCallback(
@@ -433,6 +450,25 @@ export function Settings() {
                 {dataMessage.text}
               </Notification>
             )}
+          </Stack>
+
+          <Divider />
+
+          {/* Updates */}
+          <Stack gap="xs" className={classes.section}>
+            <Text fw={600} size="sm">
+              Updates
+            </Text>
+            {appVersion && (
+              <Text size="xs" c="dimmed">
+                Version: {appVersion}
+              </Text>
+            )}
+            <Group>
+              <Button variant="light" loading={updateChecking} onClick={handleCheckForUpdates}>
+                Check for updates
+              </Button>
+            </Group>
           </Stack>
         </Stack>
       </div>

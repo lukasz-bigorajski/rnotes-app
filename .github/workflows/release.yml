@@ -55,8 +55,29 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
-      - name: Set version from tag
-        run: node -e "const fs=require('fs'),c=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'));c.version=process.env.GITHUB_REF_NAME.replace(/^v/,'');fs.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n')"
+      - name: Set versions from tag
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+
+            // package.json
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = version;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+
+            // src-tauri/Cargo.toml
+            let cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            cargo = cargo.replace(/^version = \".*?\"/m, 'version = \"' + version + '\"');
+            fs.writeFileSync('src-tauri/Cargo.toml', cargo);
+
+            // src-tauri/tauri.conf.json
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = version;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+
+            console.log('Version set to: ' + version);
+          "
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
