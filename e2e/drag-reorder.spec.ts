@@ -35,22 +35,28 @@ test("drag note to last position by dropping on bottom half of last item", async
   const testNote = page.locator("nav").getByText("Test Note");
   const noteC = page.locator("nav").getByText("Note C");
 
+  // Scroll the sidebar tree to the top so both source and target are in the viewport
+  await testNote.scrollIntoViewIfNeeded();
+
   const testNoteBox = await testNote.boundingBox();
   const noteCBox = await noteC.boundingBox();
   if (!testNoteBox || !noteCBox) {
     throw new Error("Could not get bounding boxes");
   }
 
-  // Drag "Test Note" to the BOTTOM HALF of "Note C" (the last item)
-  // This means the drag center is below Note C's midpoint → insertAfter = true
-  await page.mouse.move(
-    testNoteBox.x + testNoteBox.width / 2,
-    testNoteBox.y + testNoteBox.height / 2,
-  );
+  // Drag "Test Note" to the BOTTOM HALF of "Note C" (the last item).
+  // dnd-kit's PointerSensor requires a small "wake-up" move after pointerdown
+  // before it attaches its internal pointermove listeners (distance constraint).
+  const startX = testNoteBox.x + testNoteBox.width / 2;
+  const startY = testNoteBox.y + testNoteBox.height / 2;
+  await page.mouse.move(startX, startY);
   await page.mouse.down();
+  // Small wake-up move to satisfy the distance: 8 activation constraint
+  await page.mouse.move(startX + 1, startY + 10, { steps: 3 });
+  // Now move to the bottom 80% of Note C (below its midpoint → insertAfter = true)
   await page.mouse.move(
     noteCBox.x + noteCBox.width / 2,
-    noteCBox.y + noteCBox.height * 0.8, // bottom 20% of Note C
+    noteCBox.y + noteCBox.height * 0.8,
     { steps: 15 },
   );
   await page.mouse.up();

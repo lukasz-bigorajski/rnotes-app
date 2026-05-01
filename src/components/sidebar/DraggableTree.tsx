@@ -80,7 +80,7 @@ export function DraggableTree({
     setIsDragging(false);
     setDraggedNoteId(null);
 
-    const { active, over } = event;
+    const { active, over, delta } = event;
 
     if (!over) {
       return;
@@ -150,10 +150,14 @@ export function DraggableTree({
         // Determine insert before or after based on where the dragged item's
         // translated rect center is relative to the target's vertical midpoint.
         // active.rect.current.translated is dnd-kit's authoritative current position.
+        // Fall back to initial + delta when translated is null (e.g. in headless tests).
         const translatedRect = active.rect.current.translated;
+        const initialRect = active.rect.current.initial;
         const dragCenterY = translatedRect
           ? translatedRect.top + translatedRect.height / 2
-          : over.rect.top;
+          : initialRect
+          ? initialRect.top + delta.y + initialRect.height / 2
+          : over.rect.top + over.rect.height / 2;
         const overMidY = over.rect.top + over.rect.height / 2;
         const insertAfter = dragCenterY > overMidY;
 
