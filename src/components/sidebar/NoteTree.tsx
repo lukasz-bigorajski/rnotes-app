@@ -144,6 +144,7 @@ function DraggableTreeNode({
     if (isFolder) {
       tree.toggleExpanded(node.value);
     } else {
+      editorFocusBridge.focusOnLoad = true;
       setActiveNoteId(node.value);
     }
   };

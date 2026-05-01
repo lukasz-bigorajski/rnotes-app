@@ -130,6 +130,7 @@ export function FindReplaceBar({ editor, onClose, initialQuery }: FindReplaceBar
         } else {
           goToNext();
         }
+        editor.commands.focus();
       }
     },
     [onClose, goToNext, goToPrev],

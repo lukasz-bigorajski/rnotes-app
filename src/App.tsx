@@ -13,6 +13,7 @@ import { RecoveryDialog } from "./components/RecoveryDialog";
 import { UserConfigProvider } from "./context/UserConfigContext";
 import { type AppHealth, getAppHealth } from "./ipc/backup";
 import { useUpdater } from "./hooks/useUpdater";
+import { editorFocusBridge } from "./utils/editorFocusBridge";
 
 type ActiveView = "editor" | "tasks" | "settings";
 
@@ -148,6 +149,7 @@ function AppInner() {
 
   const handleGlobalSearchSelect = (noteId: string, query: string) => {
     setPendingSearchQuery(query || null);
+    editorFocusBridge.focusOnLoad = true;
     handleSetActiveNoteId(noteId);
     setGlobalSearchOpened(false);
     setTimeout(() => focusEditorRef.current?.(), 150);
