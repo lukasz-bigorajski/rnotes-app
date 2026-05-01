@@ -8,7 +8,9 @@ test("tree renders folder/note hierarchy", async ({ page }) => {
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
 
-  // Wait for "Untitled Folder" to appear in the sidebar
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 
@@ -131,6 +133,9 @@ test("drag note onto folder moves it into folder", async ({ page }) => {
   // Create a folder
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   await page.getByText("Untitled Folder").waitFor({ state: "visible" });
 
   // Locate both elements

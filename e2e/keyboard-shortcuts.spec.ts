@@ -40,6 +40,13 @@ test("Cmd+N creates a new note", async ({ page }) => {
 
   await page.keyboard.press("Meta+n");
 
+  // Note is auto-placed in rename mode; click input to ensure focus (editor may steal it),
+  // then dismiss with Escape to show the text label
+  const renameInput = page.getByTestId("inline-rename-input");
+  await renameInput.waitFor({ state: "visible" });
+  await renameInput.click();
+  await page.keyboard.press("Escape");
+
   // A new "Untitled" note should appear in the sidebar
   await expect(page.locator("nav")).toContainText("Untitled");
   const notesAfter = await page.locator("nav").getByText("Untitled").count();

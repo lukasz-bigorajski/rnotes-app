@@ -11,18 +11,9 @@ test("drag note to last position by dropping on bottom half of last item", async
   // Create two more notes so we have 3 items
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-note-btn").click();
-  await page.locator("nav").getByText("Untitled").first().waitFor({ state: "visible" });
-
-  // Rename the second note to "Note B" via context menu
-  await page.locator("nav").getByText("Untitled").first().hover();
-  const dotsB = page
-    .locator('[class*="treeNode"]')
-    .filter({ hasText: "Untitled" })
-    .first()
-    .getByRole("button");
-  await dotsB.click();
-  await page.getByText("Rename").click();
+  // Note is auto-placed in rename mode — fill the title directly
   const inputB = page.getByTestId("inline-rename-input");
+  await inputB.waitFor({ state: "visible" });
   await inputB.fill("Note B");
   await page.keyboard.press("Enter");
   await page.locator("nav").getByText("Note B").waitFor({ state: "visible" });
@@ -30,21 +21,13 @@ test("drag note to last position by dropping on bottom half of last item", async
   // Create a third note
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-note-btn").click();
-  await page.locator("nav").getByText("Untitled").first().waitFor({ state: "visible" });
-
-  // Rename to "Note C"
-  await page.locator("nav").getByText("Untitled").first().hover();
-  const dotsC = page
-    .locator('[class*="treeNode"]')
-    .filter({ hasText: "Untitled" })
-    .first()
-    .getByRole("button");
-  await dotsC.click();
-  await page.getByText("Rename").click();
   const inputC = page.getByTestId("inline-rename-input");
+  await inputC.waitFor({ state: "visible" });
   await inputC.fill("Note C");
   await page.keyboard.press("Enter");
   await page.locator("nav").getByText("Note C").waitFor({ state: "visible" });
+  // Let the tree finish re-rendering after the note reload triggered by rename submit
+  await page.waitForTimeout(150);
 
   // Current order in sidebar (by sort_order): Test Note, Note B, Note C
   // We want to move "Test Note" to LAST position (after "Note C")

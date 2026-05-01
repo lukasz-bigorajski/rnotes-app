@@ -12,6 +12,9 @@ test("collapsed folder with children shows child indicator", async ({ page }) =>
   // Create a folder
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 
@@ -42,6 +45,9 @@ test("empty folder does not show child indicator", async ({ page }) => {
   // Create a folder — it starts empty
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 
@@ -58,6 +64,9 @@ test("child indicator is hidden when folder is expanded", async ({ page }) => {
   // Create a folder and add a note to it
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   const folderItem = page.getByText("Untitled Folder");
   await folderItem.waitFor({ state: "visible" });
 

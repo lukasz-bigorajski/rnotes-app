@@ -33,10 +33,10 @@ test("expand folders then switch to Tasks and back - folders remain expanded", a
   // Create a folder
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   await page.getByText("Untitled Folder").waitFor({ state: "visible" });
-
-  // Expand the folder by clicking it
-  await page.getByText("Untitled Folder").click();
 
   // Create a child note inside the folder so it has children
   await page.getByText("Untitled Folder").hover();
@@ -46,11 +46,8 @@ test("expand folders then switch to Tasks and back - folders remain expanded", a
     .getByRole("button");
   await dotsButton.click();
   await page.getByText("New Note").click();
+  // Child creation auto-expands the folder — wait for the child note
   await page.getByText("Untitled").first().waitFor({ state: "visible" });
-
-  // Expand the folder again (it may have collapsed on child creation)
-  const folderItem = page.getByText("Untitled Folder");
-  await folderItem.click();
 
   // Confirm the child note is visible (folder is expanded)
   await expect(page.locator("nav").getByText("Untitled").first()).toBeVisible();
@@ -73,6 +70,9 @@ test("expand folders then reload page - expanded state persists in localStorage"
   // Create a folder and a child note so the folder becomes expanded
   await page.getByTestId("create-new-btn").click();
   await page.getByTestId("create-folder-btn").click();
+  // Folder is auto-placed in rename mode — dismiss to show the text label
+  await page.getByTestId("inline-rename-input").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
   await page.getByText("Untitled Folder").waitFor({ state: "visible" });
 
   // Create a child note inside the folder — handleCreateNote calls tree.expand(parentId)
