@@ -27,6 +27,7 @@ import { useAutoSave } from "../../hooks/useAutoSave";
 import type { SaveStatus } from "../../hooks/useAutoSave";
 import { SaveStatusIndicator } from "./SaveStatusIndicator";
 import type { JSONContent } from "@tiptap/react";
+import { readText as clipboardReadText } from "@tauri-apps/plugin-clipboard-manager";
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
 
@@ -507,8 +508,7 @@ export function NoteEditor({
         e.preventDefault();
         const currentEditor = editorRef.current;
         if (!currentEditor) return;
-        navigator.clipboard
-          .readText()
+        clipboardReadText()
           .then((text: string) => {
             currentEditor.commands.insertContent({
               type: "text",
@@ -583,124 +583,148 @@ export function NoteEditor({
       const selection = currentEditor?.state.selection;
       const hasSelection = selection ? !selection.empty : false;
       const { from, to } = selection ?? { from: 0, to: 0 };
+      const inCodeBlock = currentEditor?.isActive("codeBlock") ?? false;
 
-      const buildMenu = (clipboardText: string) => {
-        // Create custom context menu
-        const menu = document.createElement("div");
-        menu.className = "custom-context-menu";
-        menu.style.cssText = `
-            position: fixed;
-            top: ${e.clientY}px;
-            left: ${e.clientX}px;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 10000;
-            min-width: 200px;
-            overflow: hidden;
+      // Create custom context menu
+      const menu = document.createElement("div");
+      menu.className = "custom-context-menu";
+      menu.style.cssText = `
+          position: fixed;
+          top: ${e.clientY}px;
+          left: ${e.clientX}px;
+          background: white;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          z-index: 10000;
+          min-width: 200px;
+          overflow: hidden;
+        `;
+
+      // Menu items
+      const items = [
+        { label: "Cut", action: "cut", enabled: hasSelection },
+        { label: "Copy", action: "copy", enabled: hasSelection },
+        { label: "Copy raw", action: "copyRaw", enabled: hasSelection },
+        { label: "Copy as Markdown", action: "copyAsMarkdown", enabled: hasSelection },
+        ...(inCodeBlock ? [{ label: "Copy code", action: "copyCode", enabled: true }] : []),
+        { label: "Paste", action: "paste", enabled: true },
+        { label: "Paste raw", action: "pasteRaw", enabled: true },
+      ];
+
+      items.forEach((item) => {
+        const button = document.createElement("button");
+        button.textContent = item.label;
+        button.style.cssText = `
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            background: none;
+            border: none;
+            cursor: ${item.enabled ? "pointer" : "not-allowed"};
+            color: ${item.enabled ? "#1a1a1a" : "#aaa"};
+            font-size: 14px;
+            transition: background-color 0.1s;
           `;
 
-        // Menu items
-        const items = [
-          { label: "Cut", action: "cut", enabled: hasSelection },
-          { label: "Copy", action: "copy", enabled: hasSelection },
-          { label: "Copy raw", action: "copyRaw", enabled: hasSelection },
-          { label: "Copy as Markdown", action: "copyAsMarkdown", enabled: hasSelection },
-          { label: "Paste", action: "paste", enabled: true },
-          { label: "Paste raw", action: "pasteRaw", enabled: true },
-        ];
-
-          items.forEach((item) => {
-            const button = document.createElement("button");
-            button.textContent = item.label;
-            button.style.cssText = `
-              width: 100%;
-              padding: 8px 12px;
-              text-align: left;
-              background: none;
-              border: none;
-              cursor: ${item.enabled ? "pointer" : "not-allowed"};
-              color: ${item.enabled ? "#1a1a1a" : "#aaa"};
-              font-size: 14px;
-              transition: background-color 0.1s;
-            `;
-
-            if (item.enabled) {
-              button.onmouseover = () => {
-                button.style.backgroundColor = "#f0f0f0";
-              };
-              button.onmouseout = () => {
-                button.style.backgroundColor = "transparent";
-              };
-              button.onclick = () => {
-                if (item.action === "cut") {
-                  document.execCommand("cut");
-                } else if (item.action === "copy") {
-                  document.execCommand("copy");
-                } else if (item.action === "copyRaw") {
-                  const ed = editorRef.current;
-                  if (ed) {
-                    const rawText = ed.state.doc.textBetween(from, to, "\n");
-                    navigator.clipboard.writeText(rawText).catch((err) => {
-                      console.error("Failed to write clipboard:", err);
-                    });
-                  }
-                } else if (item.action === "copyAsMarkdown") {
-                  const ed = editorRef.current;
-                  if (ed) {
-                    const subDoc = ed.state.doc.cut(from, to);
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const markdown = (ed.storage as any).markdown.serializer.serialize(subDoc);
-                    navigator.clipboard.writeText(markdown).catch((err) => {
-                      console.error("Failed to write clipboard:", err);
-                    });
-                  }
-                } else if (item.action === "paste") {
-                  document.execCommand("paste");
-                } else if (item.action === "pasteRaw") {
-                  const ed = editorRef.current;
-                  if (ed) {
-                    if (clipboardText) {
-                      ed.commands.insertContent({ type: "text", text: clipboardText });
-                    } else {
-                      // Fall back to system paste when clipboard API was unavailable
-                      document.execCommand("paste");
-                    }
+        if (item.enabled) {
+          button.onmouseover = () => {
+            button.style.backgroundColor = "#f0f0f0";
+          };
+          button.onmouseout = () => {
+            button.style.backgroundColor = "transparent";
+          };
+          button.onclick = () => {
+            const ed = editorRef.current;
+            if (item.action === "cut") {
+              document.execCommand("cut");
+            } else if (item.action === "copy") {
+              document.execCommand("copy");
+            } else if (item.action === "copyRaw") {
+              if (ed) {
+                const rawText = ed.state.doc.textBetween(from, to, "\n");
+                navigator.clipboard.writeText(rawText).catch((err) => {
+                  console.error("Failed to write clipboard:", err);
+                });
+              }
+            } else if (item.action === "copyAsMarkdown") {
+              if (ed) {
+                const subDoc = ed.state.doc.cut(from, to);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const markdown = (ed.storage as any).markdown.serializer.serialize(subDoc);
+                navigator.clipboard.writeText(markdown).catch((err) => {
+                  console.error("Failed to write clipboard:", err);
+                });
+              }
+            } else if (item.action === "copyCode") {
+              if (ed) {
+                // Find the enclosing code block node and get its full text
+                const { $from } = ed.state.selection;
+                let codeText = "";
+                for (let depth = $from.depth; depth >= 0; depth--) {
+                  const node = $from.node(depth);
+                  if (node.type.name === "codeBlock") {
+                    codeText = node.textContent;
+                    break;
                   }
                 }
-                menu.remove();
-              };
+                navigator.clipboard.writeText(codeText).catch((err) => {
+                  console.error("Failed to write clipboard:", err);
+                });
+              }
+            } else if (item.action === "paste") {
+              // Use the Tauri clipboard plugin to read text, then dispatch a synthetic
+              // paste event so PasteExtension can handle markdown detection.
+              if (ed) {
+                clipboardReadText()
+                  .then((text: string) => {
+                    const pasteEvent = new ClipboardEvent("paste", {
+                      bubbles: true,
+                      cancelable: true,
+                      clipboardData: new DataTransfer(),
+                    });
+                    pasteEvent.clipboardData?.setData("text/plain", text);
+                    ed.view.dom.dispatchEvent(pasteEvent);
+                  })
+                  .catch((err: Error) => {
+                    console.error("Failed to read clipboard:", err);
+                  });
+              }
+            } else if (item.action === "pasteRaw") {
+              if (ed) {
+                clipboardReadText()
+                  .then((text: string) => {
+                    ed.commands.insertContent({ type: "text", text });
+                  })
+                  .catch((err: Error) => {
+                    console.error("Failed to read clipboard:", err);
+                  });
+              }
             }
-
-            menu.appendChild(button);
-          });
-
-          document.body.appendChild(menu);
-
-          // Close menu on click outside or escape
-          const closeMenu = () => {
             menu.remove();
-            document.removeEventListener("click", closeMenu);
-            document.removeEventListener("keydown", handleEscapeKey);
           };
+        }
 
-          const handleEscapeKey = (escEvent: KeyboardEvent) => {
-            if (escEvent.key === "Escape") {
-              closeMenu();
-            }
-          };
+        menu.appendChild(button);
+      });
 
-          document.addEventListener("click", closeMenu);
-          document.addEventListener("keydown", handleEscapeKey);
-        return menu;
+      document.body.appendChild(menu);
+
+      // Close menu on click outside or escape
+      const closeMenu = () => {
+        menu.remove();
+        document.removeEventListener("click", closeMenu);
+        document.removeEventListener("keydown", handleEscapeKey);
       };
 
-      // Try to read clipboard text but always show the menu regardless
-      navigator.clipboard
-        .readText()
-        .then((text: string) => buildMenu(text))
-        .catch(() => buildMenu(""));
+      const handleEscapeKey = (escEvent: KeyboardEvent) => {
+        if (escEvent.key === "Escape") {
+          closeMenu();
+        }
+      };
+
+      document.addEventListener("click", closeMenu);
+      document.addEventListener("keydown", handleEscapeKey);
     };
 
     editorContent.addEventListener("contextmenu", handleContextMenu);

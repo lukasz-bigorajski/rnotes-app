@@ -342,6 +342,34 @@
   color: #cdd6f4;
 }
 
+.editorContent :global(.tiptap .code-block-copy-btn) {
+  position: absolute;
+  top: 6px;
+  right: 100px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #a6adc8;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.1s;
+}
+
+.editorContent :global(.tiptap .code-block-wrapper:hover .code-block-copy-btn) {
+  opacity: 1;
+}
+
+.editorContent :global(.tiptap .code-block-copy-btn:hover) {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
 /* ── Syntax highlighting tokens (Catppuccin-inspired, works on dark bg) ── */
 .editorContent :global(.tiptap pre code .hljs-keyword),
 .editorContent :global(.tiptap pre code .hljs-selector-tag),
