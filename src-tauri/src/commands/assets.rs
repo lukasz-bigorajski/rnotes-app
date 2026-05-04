@@ -40,6 +40,7 @@ pub fn get_image_url(app: AppHandle, asset_path: String) -> Result<String, Strin
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetInfo {
     pub name: String,
     pub size: u64,

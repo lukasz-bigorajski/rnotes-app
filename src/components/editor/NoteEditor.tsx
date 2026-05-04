@@ -710,6 +710,15 @@ export function NoteEditor({
 
       document.body.appendChild(menu);
 
+      // Flip position if menu overflows the viewport
+      const menuRect = menu.getBoundingClientRect();
+      if (menuRect.bottom > window.innerHeight) {
+        menu.style.top = `${e.clientY - menuRect.height}px`;
+      }
+      if (menuRect.right > window.innerWidth) {
+        menu.style.left = `${e.clientX - menuRect.width}px`;
+      }
+
       // Close menu on click outside or escape
       const closeMenu = () => {
         menu.remove();
