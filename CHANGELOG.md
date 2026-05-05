@@ -2,6 +2,33 @@
 
 All notable changes to rnotes-app are documented here.
 
+## [0.0.5] - 2026-05-04
+
+### Added
+
+- **Text color** — Apply foreground color to selected text from the editor toolbar
+- **Clear formatting** — One-click button to strip all inline formatting from a selection
+- **Arrow typography** — `->` and `=>` are automatically converted to `→` and `⇒` as you type
+- **Resizable sidebar** — Drag the sidebar handle to set a custom width; size is remembered across sessions
+- **Code block copy button** — A copy button appears on hover over any code block; also available via right-click context menu ("Copy code")
+- **Image info panel** — Right-click any image to open a modal showing the filename, file size, on-disk path, and pixel dimensions
+- **Manual update check** — Check for app updates manually from Settings → About; CI now injects the version number from the git tag at build time
+
+### Fixed
+
+- **Cross-platform image paths** — Images are now stored as portable relative paths (`assets/…`) in the database and resolved to platform URLs at render time, fixing images disappearing on Linux/Ubuntu
+- **Clipboard read in Tauri webview** — Paste and paste-raw context-menu actions now use the Tauri clipboard plugin (`@tauri-apps/plugin-clipboard-manager`) so clipboard reading works reliably in the Tauri webview
+- **Editor focus** — Focus transfers correctly to the editor after a sidebar click, pressing Enter in the find bar, and selecting a result in global search
+- **Editor view layout** — Corrected an edge-case layout issue in the note editor view
+- **Table menu positioning** — The table context menu now re-positions itself on scroll and clamps to the viewport top so it is never cut off
+- **Find bar scroll preservation** — Closing the find bar no longer jumps the scroll position
+- **Global search shortcut in editor** — `Mod+Shift+N` now opens Global Search even when the editor has focus (TipTap keymap extension registered)
+- **Sidebar collapse toggle** — Added a visible collapse button to the sidebar and a floating expand button that appears when the sidebar is hidden
+- **Autolink disabled** — Java-style package paths (e.g. `com.example.Foo`) and similar dot-separated strings are no longer auto-linked
+- **Emoji picker suppressed inside links** — The emoji picker no longer triggers on `:` when the cursor is inside a link mark, preventing false positives in URLs
+- **Ubuntu notification errors** — Notification failures are now logged instead of silently swallowed, making missing system dependencies (e.g. `libdbus`) visible
+- **List indentation** — Increased `padding-left` for bullet and numbered lists for better visual hierarchy
+
 ## [0.0.4] - 2026-04-29
 
 ### Added

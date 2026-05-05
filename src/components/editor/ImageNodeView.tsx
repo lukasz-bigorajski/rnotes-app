@@ -337,16 +337,12 @@ export function ImageNodeView({ node, selected, updateAttributes }: NodeViewProp
                 <Text size="sm" c="dimmed">File size</Text>
                 <Badge variant="light">{formatBytes(assetInfo.size)}</Badge>
               </Group>
-              <Group justify="space-between" align="flex-start">
+              <Stack gap={2}>
                 <Text size="sm" c="dimmed">Path</Text>
-                <Text
-                  size="xs"
-                  ff="monospace"
-                  style={{ wordBreak: "break-all", textAlign: "right", maxWidth: "70%" }}
-                >
+                <Text size="xs" ff="monospace" style={{ wordBreak: "break-all" }}>
                   {assetInfo.absolutePath}
                 </Text>
-              </Group>
+              </Stack>
             </>
           )}
           {naturalSize && (
