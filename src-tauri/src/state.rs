@@ -7,6 +7,7 @@ pub struct DbState(pub Mutex<Connection>);
 
 pub struct AppConfig {
     pub data_dir: PathBuf,
+    #[allow(dead_code)]
     pub assets_dir: PathBuf,
 }
 

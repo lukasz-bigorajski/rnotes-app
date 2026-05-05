@@ -213,12 +213,14 @@ pub fn move_note(
     Ok(())
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SiblingInfo {
     pub id: String,
     pub sort_order: f64,
 }
 
+#[allow(dead_code)]
 pub fn get_siblings_sorted(
     conn: &Connection,
     parent_id: Option<&str>,

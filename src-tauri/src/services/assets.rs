@@ -31,6 +31,7 @@ pub fn save_asset(
 }
 
 /// Read file bytes from a relative asset path.
+#[allow(dead_code)]
 pub fn read_asset(app: &AppHandle, asset_path: &str) -> AppResult<Vec<u8>> {
     let data_dir = config_service::resolve_data_dir(app)?;
     let full_path = data_dir.join(asset_path);
@@ -46,6 +47,7 @@ pub fn read_asset(app: &AppHandle, asset_path: &str) -> AppResult<Vec<u8>> {
 }
 
 /// Delete all assets for a note (call when permanently deleting a note).
+#[allow(dead_code)]
 pub fn delete_note_assets(app: &AppHandle, note_id: &str) -> AppResult<()> {
     let data_dir = config_service::resolve_data_dir(app)?;
     let note_assets_dir = data_dir.join("assets").join(note_id);
