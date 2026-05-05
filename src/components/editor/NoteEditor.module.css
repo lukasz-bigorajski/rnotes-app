@@ -251,7 +251,7 @@
   accent-color: var(--mantine-color-blue-6);
 }
 
-.editorContent :global(.tiptap ul[data-type="taskList"] li > div) {
+.editorContent :global(.tiptap ul[data-type="taskList"] li > div:not(.task-item-due-date-controls)) {
   flex: 1;
   min-width: 0;
 }
