@@ -79,6 +79,10 @@ interface NoteEditorProps {
   onInitialFindQueryConsumed?: () => void;
   focusEditorRef?: MutableRefObject<(() => void) | null>;
   onOpenGlobalSearch?: () => void;
+  goBack?: () => void;
+  goForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 export function NoteEditor({
@@ -100,6 +104,10 @@ export function NoteEditor({
   onInitialFindQueryConsumed,
   focusEditorRef,
   onOpenGlobalSearch,
+  goBack,
+  goForward,
+  canGoBack,
+  canGoForward,
 }: NoteEditorProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -273,6 +281,29 @@ export function NoteEditor({
     ],
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
+    editorProps: {
+      transformPastedHTML(html) {
+        // Strip emoji <img> tags from rich sources (GitHub, Slack, Gmail) and replace with alt text.
+        // These sources wrap emoji characters in <img class="emoji" alt="👉"> or point to emoji CDNs.
+        // We only strip images that are clearly emoji — real image nodes are left untouched.
+        return html
+          // class="emoji" variant (attribute order: class before alt)
+          .replace(
+            /<img[^>]*class="[^"]*emoji[^"]*"[^>]*alt="([^"]*)"[^>]*\/?>/gi,
+            "$1",
+          )
+          // class="emoji" variant (attribute order: alt before class)
+          .replace(
+            /<img[^>]*alt="([^"]*)"[^>]*class="[^"]*emoji[^"]*"[^>]*\/?>/gi,
+            "$1",
+          )
+          // src points to a known emoji CDN (GitHub, Twemoji, etc.)
+          .replace(
+            /<img[^>]*src="[^"]*(?:emoji|twemoji|github\.githubassets\.com\/images\/icons\/emoji)[^"]*"[^>]*alt="([^"]*)"[^>]*\/?>/gi,
+            "$1",
+          );
+      },
+    },
   });
 
   useAutoSave({
@@ -412,6 +443,10 @@ export function NoteEditor({
   // and Cmd+Shift+1-9 for editor structure shortcuts.
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  const goForwardRef = useRef(goForward);
+  goForwardRef.current = goForward;
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const noteIdRef = useRef(noteId);
@@ -485,6 +520,20 @@ export function NoteEditor({
       if (e.key === "f" && !e.shiftKey) {
         e.preventDefault();
         setFindBarOpen(true);
+        return;
+      }
+
+      // Cmd+[ — navigate back in note history
+      if (e.key === "[" && !e.shiftKey) {
+        e.preventDefault();
+        goBackRef.current?.();
+        return;
+      }
+
+      // Cmd+] — navigate forward in note history
+      if (e.key === "]" && !e.shiftKey) {
+        e.preventDefault();
+        goForwardRef.current?.();
         return;
       }
 
@@ -763,6 +812,10 @@ export function NoteEditor({
         title={localTitle}
         createdAt={createdAt}
         updatedAt={updatedAt}
+        goBack={goBack}
+        goForward={goForward}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
       />
       {findBarOpen && (
         <FindReplaceBar

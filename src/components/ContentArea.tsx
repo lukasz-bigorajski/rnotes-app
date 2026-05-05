@@ -20,6 +20,10 @@ interface ContentAreaProps {
   initialFindQuery?: string | null;
   onInitialFindQueryConsumed?: () => void;
   onOpenGlobalSearch?: () => void;
+  goBack?: () => void;
+  goForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 export function ContentArea({
@@ -33,6 +37,10 @@ export function ContentArea({
   initialFindQuery,
   onInitialFindQueryConsumed,
   onOpenGlobalSearch,
+  goBack,
+  goForward,
+  canGoBack,
+  canGoForward,
 }: ContentAreaProps) {
   const { note, loading, saveNote, updateTitle, refreshNote } = useActiveNote(activeNoteId);
 
@@ -128,6 +136,10 @@ export function ContentArea({
         initialFindQuery={findQueryForEditor}
         onInitialFindQueryConsumed={onInitialFindQueryConsumed}
         onOpenGlobalSearch={onOpenGlobalSearch}
+        goBack={goBack}
+        goForward={goForward}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
       />
     </div>
   );

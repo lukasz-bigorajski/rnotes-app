@@ -27,6 +27,8 @@ import {
   IconLink,
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconArrowLeft,
+  IconArrowRight,
   IconBlockquote,
   IconCode,
   IconCodeDots,
@@ -54,6 +56,10 @@ interface EditorToolbarProps {
   title?: string;
   createdAt?: number;
   updatedAt?: number;
+  goBack?: () => void;
+  goForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 function slugify(text: string): string {
@@ -130,7 +136,7 @@ function NoteLinkSearch({ query, results, onQueryChange, onSelect, onEscape, aut
   );
 }
 
-export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, updatedAt }: EditorToolbarProps) {
+export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, updatedAt, goBack, goForward, canGoBack, canGoForward }: EditorToolbarProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpened, setLinkOpened] = useState(false);
   const [floatingLink, setFloatingLink] = useState(false);
@@ -693,6 +699,30 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
           data-testid="insert-image-button"
         >
           <IconPhoto size={16} />
+        </ActionIcon>
+
+        <div className={classes.separator} />
+
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          onClick={goBack}
+          disabled={!canGoBack}
+          title="Go Back (Cmd+[)"
+          data-testid="nav-back-button"
+        >
+          <IconArrowLeft size={16} />
+        </ActionIcon>
+
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          onClick={goForward}
+          disabled={!canGoForward}
+          title="Go Forward (Cmd+])"
+          data-testid="nav-forward-button"
+        >
+          <IconArrowRight size={16} />
         </ActionIcon>
 
         <div className={classes.separator} />

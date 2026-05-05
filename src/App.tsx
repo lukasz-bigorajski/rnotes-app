@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { AppShell, ActionIcon } from "@mantine/core";
 import { useDisclosure, useHotkeys } from "@mantine/hooks";
 import { IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
@@ -38,6 +38,13 @@ function AppInner() {
   const focusSidebarRef = useRef<(() => void) | null>(null);
   const focusEditorRef = useRef<(() => void) | null>(null);
 
+  // Navigation history (browser-style back/forward)
+  const [navState, setNavState] = useState<{ history: string[]; index: number }>({
+    history: [],
+    index: -1,
+  });
+  const isNavigatingHistory = useRef(false);
+
   const [sidebarWidth, setSidebarWidth] = useState(
     () => Number(localStorage.getItem("sidebarWidth")) || 260,
   );
@@ -46,6 +53,43 @@ function AppInner() {
   const [dragHandleHovered, setDragHandleHovered] = useState(false);
 
   useUpdater();
+
+  // Track note navigation history. Combined state avoids stale-closure / double-push bugs.
+  useEffect(() => {
+    if (!activeNoteId) return;
+    if (isNavigatingHistory.current) {
+      isNavigatingHistory.current = false;
+      return;
+    }
+    setNavState((prev) => {
+      // Dedupe: skip if the current top of stack is already this note
+      if (prev.history[prev.index] === activeNoteId) return prev;
+      const sliced = prev.history.slice(0, prev.index + 1);
+      const next = [...sliced, activeNoteId].slice(-50);
+      return { history: next, index: next.length - 1 };
+    });
+  }, [activeNoteId]);
+
+  const goBack = useCallback(() => {
+    if (navState.index <= 0) return;
+    isNavigatingHistory.current = true;
+    const newIndex = navState.index - 1;
+    setNavState((prev) => ({ ...prev, index: newIndex }));
+    setActiveNoteId(navState.history[newIndex]);
+    setActiveView("editor");
+  }, [navState]);
+
+  const goForward = useCallback(() => {
+    if (navState.index >= navState.history.length - 1) return;
+    isNavigatingHistory.current = true;
+    const newIndex = navState.index + 1;
+    setNavState((prev) => ({ ...prev, index: newIndex }));
+    setActiveNoteId(navState.history[newIndex]);
+    setActiveView("editor");
+  }, [navState]);
+
+  const canGoBack = navState.index > 0;
+  const canGoForward = navState.index < navState.history.length - 1;
 
   useEffect(() => {
     getAppHealth()
@@ -257,6 +301,10 @@ function AppInner() {
               initialFindQuery={pendingSearchQuery}
               onInitialFindQueryConsumed={() => setPendingSearchQuery(null)}
               onOpenGlobalSearch={() => { setGlobalSearchTitleOnly(true); setGlobalSearchOpened(true); }}
+              goBack={goBack}
+              goForward={goForward}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
             />
           )}
         </AppShell.Main>
