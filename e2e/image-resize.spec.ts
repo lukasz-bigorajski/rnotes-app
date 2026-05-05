@@ -75,12 +75,10 @@ test("image element is present inside the node view", async ({ page }) => {
 });
 
 test("resize handles are hidden when image is not selected", async ({ page }) => {
-  // The image node view is not selected by default when the note loads
-  // (TipTap selects the first text position, not the image node)
-  // To ensure it's deselected: press Escape then click the paragraph
-  await page.locator(".tiptap").press("Escape");
-  // Click a different element — the title input — to move focus away
-  await page.locator('[data-testid="note-title-input"]').click();
+  // Click the paragraph inside the editor to move the ProseMirror cursor there,
+  // which deselects the image node. Clicking outside the editor does not
+  // update TipTap's internal selection, so the image would still appear selected.
+  await page.locator(".tiptap p").click();
 
   // Handles should exist in DOM but be transparent (opacity 0) when not selected
   const handle = page.locator('[data-testid="image-handle-se"]');
