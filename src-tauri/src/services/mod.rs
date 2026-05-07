@@ -4,4 +4,5 @@ pub mod config_service;
 pub mod export_service;
 pub mod note_service;
 pub mod notification_service;
+pub mod spreadsheet_service;
 pub mod task_service;

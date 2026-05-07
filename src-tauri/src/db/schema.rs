@@ -53,6 +53,10 @@ const SCHEMA_V2: &str = "
 ALTER TABLE note_tasks ADD COLUMN notified_at INTEGER;
 ";
 
+const SCHEMA_V3: &str = "
+ALTER TABLE notes ADD COLUMN note_type TEXT NOT NULL DEFAULT 'richtext';
+";
+
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
 
@@ -64,6 +68,11 @@ pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     if version < 2 {
         conn.execute_batch(SCHEMA_V2)?;
         conn.pragma_update(None, "user_version", 2)?;
+    }
+
+    if version < 3 {
+        conn.execute_batch(SCHEMA_V3)?;
+        conn.pragma_update(None, "user_version", 3)?;
     }
 
     Ok(())

@@ -158,6 +158,9 @@ pub fn run() {
             commands::backup::restore_from_backup,
             commands::export_commands::export_all,
             commands::export_commands::import_all,
+            commands::spreadsheet_commands::create_spreadsheet_note,
+            commands::spreadsheet_commands::update_spreadsheet,
+            commands::spreadsheet_commands::update_spreadsheet_cell,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

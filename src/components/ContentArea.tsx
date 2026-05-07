@@ -3,6 +3,9 @@ import type { MutableRefObject } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconNotes } from "@tabler/icons-react";
 import { NoteEditor } from "./editor/NoteEditor";
+import { SpreadsheetEditor } from "./editor/SpreadsheetEditor";
+import type { SpreadsheetContent } from "../ipc/notes";
+import { updateSpreadsheet } from "../ipc/notes";
 import { useActiveNote } from "../hooks/useActiveNote";
 import { renameNote } from "../ipc/notes";
 import { useUserConfig } from "../context/UserConfigContext";
@@ -113,6 +116,37 @@ export function ContentArea({
   // This runs only when NoteEditor actually renders (loading is false).
   const findQueryForEditor = capturedFindQueryRef.current;
   capturedFindQueryRef.current = undefined;
+
+  if (note.note_type === "spreadsheet") {
+    let spreadsheetContent: SpreadsheetContent | null = null;
+    try {
+      spreadsheetContent = note.content ? (JSON.parse(note.content) as SpreadsheetContent) : null;
+    } catch {
+      spreadsheetContent = null;
+    }
+
+    const handleSpreadsheetSave = async (params: {
+      id: string;
+      content: string;
+      plainText: string;
+    }) => {
+      await updateSpreadsheet({ noteId: params.id, content: params.content, plainText: params.plainText });
+    };
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <SpreadsheetEditor
+          key={activeNoteId}
+          noteId={activeNoteId}
+          title={note.title ?? "Untitled Spreadsheet"}
+          content={spreadsheetContent}
+          onSave={handleSpreadsheetSave}
+          onTitleChange={handleTitleChange}
+          forceSaveRef={forceSaveRef}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>

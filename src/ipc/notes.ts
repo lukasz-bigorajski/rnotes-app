@@ -7,6 +7,7 @@ export interface Note {
   content: string | null;
   sort_order: number;
   is_folder: boolean;
+  note_type: string;
   deleted_at: number | null;
   created_at: number;
   updated_at: number;
@@ -18,9 +19,28 @@ export interface NoteRow {
   title: string;
   sort_order: number;
   is_folder: boolean;
+  note_type: string;
   deleted_at: number | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface PivotConfig {
+  id: string;
+  sourceRange: string;
+  anchorCell: string;
+  rowField: string;
+  colField: string;
+  valueField: string;
+  aggregation: "SUM" | "COUNT" | "AVG";
+}
+
+export interface SpreadsheetContent {
+  rows: number;
+  cols: number;
+  cells: Record<string, string>;
+  pivots: PivotConfig[];
+  macros: unknown[];
 }
 
 export function createNote(params: {
@@ -116,4 +136,37 @@ export function performGlobalReplace(
 
 export function hardDeleteNote(id: string): Promise<void> {
   return invoke("hard_delete_note", { id });
+}
+
+export function createSpreadsheetNote(params: { parentId?: string; title: string }): Promise<Note> {
+  return invoke("create_spreadsheet_note", {
+    parentId: params.parentId ?? null,
+    title: params.title,
+  });
+}
+
+export function updateSpreadsheet(params: {
+  noteId: string;
+  content: string;
+  plainText: string;
+}): Promise<void> {
+  return invoke("update_spreadsheet", {
+    noteId: params.noteId,
+    content: params.content,
+    plainText: params.plainText,
+  });
+}
+
+export function updateSpreadsheetCell(params: {
+  noteId: string;
+  row: number;
+  col: number;
+  value: string;
+}): Promise<void> {
+  return invoke("update_spreadsheet_cell", {
+    noteId: params.noteId,
+    row: params.row,
+    col: params.col,
+    value: params.value,
+  });
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { editorFocusBridge } from "../../utils/editorFocusBridge";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
-import { IconFolder, IconFolderOpen, IconNote } from "@tabler/icons-react";
+import { IconFolder, IconFolderOpen, IconNote, IconTable } from "@tabler/icons-react";
 import { useTree } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { Text } from "@mantine/core";
@@ -103,7 +103,9 @@ function DraggableTreeNode({
   focusedNodeId: string | null;
 }) {
   const { node, expanded, hasChildren, elementProps } = payload;
-  const isFolder = (node.nodeProps as { isFolder: boolean }).isFolder;
+  const nodeProps = node.nodeProps as { isFolder: boolean; noteType?: string };
+  const isFolder = nodeProps.isFolder;
+  const noteType = nodeProps.noteType ?? "richtext";
   const isActive = node.value === activeNoteId;
   const isRenaming = renamingNodeId === node.value;
   const showChildIndicator = isFolder && !expanded && hasChildren;
@@ -165,6 +167,8 @@ function DraggableTreeNode({
       >
         {isFolder ? (
           <IconFolder size={16} className={classes.folderIcon} />
+        ) : noteType === "spreadsheet" ? (
+          <IconTable size={16} className={classes.noteIcon} />
         ) : (
           <IconNote size={16} className={classes.noteIcon} />
         )}
@@ -208,6 +212,8 @@ function DraggableTreeNode({
         ) : (
           <IconFolder size={16} className={classes.folderIcon} />
         )
+      ) : noteType === "spreadsheet" ? (
+        <IconTable size={16} className={classes.noteIcon} />
       ) : (
         <IconNote size={16} className={classes.noteIcon} />
       )}

@@ -7,6 +7,7 @@ interface Note {
   content: string | null;
   sort_order: number;
   is_folder: boolean;
+  note_type: string;
   deleted_at: number | null;
   created_at: number;
   updated_at: number;
@@ -19,6 +20,7 @@ const SEED_NOTE: Note = {
   content: "{}",
   sort_order: 0,
   is_folder: false,
+  note_type: "richtext",
   deleted_at: null,
   created_at: Date.now(),
   updated_at: Date.now(),
@@ -33,6 +35,7 @@ async function installTauriMock(page: Page) {
       content: string | null;
       sort_order: number;
       is_folder: boolean;
+      note_type: string;
       deleted_at: number | null;
       created_at: number;
       updated_at: number;
@@ -108,12 +111,48 @@ async function installTauriMock(page: Page) {
               content: null,
               sort_order: notes.size,
               is_folder: (args?.isFolder as boolean) ?? false,
+              note_type: "richtext",
               deleted_at: null,
               created_at: now,
               updated_at: now,
             };
             notes.set(note.id, note);
             return Promise.resolve(note);
+          }
+
+          case "create_spreadsheet_note": {
+            const now = Date.now();
+            const initialContent = JSON.stringify({
+              rows: 20,
+              cols: 10,
+              cells: {},
+              pivots: [],
+              macros: [],
+            });
+            const note: Note = {
+              id: crypto.randomUUID(),
+              parent_id: (args?.parentId as string) ?? null,
+              title: (args?.title as string) ?? "Untitled Spreadsheet",
+              content: initialContent,
+              sort_order: notes.size,
+              is_folder: false,
+              note_type: "spreadsheet",
+              deleted_at: null,
+              created_at: now,
+              updated_at: now,
+            };
+            notes.set(note.id, note);
+            return Promise.resolve(note);
+          }
+
+          case "update_spreadsheet":
+          case "update_spreadsheet_cell": {
+            const id = args?.noteId as string ?? args?.id as string;
+            const note = notes.get(id);
+            if (!note) return Promise.reject(`Note not found: ${id}`);
+            if (args?.content !== undefined) note.content = args.content as string;
+            note.updated_at = Date.now();
+            return Promise.resolve();
           }
 
           case "get_note": {

@@ -13,8 +13,9 @@ import {
   IconArchive,
   IconNotes,
   IconLayoutSidebarLeftCollapse,
+  IconTable,
 } from "@tabler/icons-react";
-import { createNote, listNotes } from "../ipc/notes";
+import { createNote, createSpreadsheetNote, listNotes } from "../ipc/notes";
 import type { NoteRow } from "../ipc/notes";
 import { notifyError } from "../utils/notify";
 import { DraggableTree } from "./sidebar/DraggableTree";
@@ -146,6 +147,17 @@ export function Sidebar({
     }
   };
 
+  const handleCreateSpreadsheet = async () => {
+    try {
+      const sheet = await createSpreadsheetNote({ title: "Untitled Spreadsheet" });
+      loadNotes();
+      setActiveNoteId(sheet.id);
+    } catch (err) {
+      console.error("Failed to create spreadsheet:", err);
+      notifyError("Create failed", "Could not create the spreadsheet");
+    }
+  };
+
   // Expose create handlers via refs so hotkeys in App.tsx can call them
   const handleCreateNoteRef = useRef(handleCreateNote);
   handleCreateNoteRef.current = handleCreateNote;
@@ -230,6 +242,13 @@ export function Sidebar({
                     data-testid="create-folder-btn"
                   >
                     New Folder
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconTable size={14} />}
+                    onClick={handleCreateSpreadsheet}
+                    data-testid="create-spreadsheet-btn"
+                  >
+                    New Spreadsheet
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>

@@ -61,6 +61,7 @@ function buildTreeNode(
       label: note.title || "Untitled",
       nodeProps: {
         isFolder: note.is_folder,
+        noteType: note.note_type ?? "richtext",
       },
     };
 

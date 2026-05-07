@@ -11,6 +11,7 @@ pub struct Note {
     pub content: Option<String>,
     pub sort_order: f64,
     pub is_folder: bool,
+    pub note_type: String,
     pub deleted_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
@@ -23,6 +24,7 @@ pub struct NoteRow {
     pub title: String,
     pub sort_order: f64,
     pub is_folder: bool,
+    pub note_type: String,
     pub deleted_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
@@ -30,8 +32,8 @@ pub struct NoteRow {
 
 pub fn insert(conn: &Connection, note: &Note) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO notes (id, parent_id, title, content, sort_order, is_folder, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO notes (id, parent_id, title, content, sort_order, is_folder, note_type, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             note.id,
             note.parent_id,
@@ -39,6 +41,7 @@ pub fn insert(conn: &Connection, note: &Note) -> AppResult<()> {
             note.content,
             note.sort_order,
             note.is_folder,
+            note.note_type,
             note.created_at,
             note.updated_at
         ],
@@ -48,7 +51,7 @@ pub fn insert(conn: &Connection, note: &Note) -> AppResult<()> {
 
 pub fn get_by_id(conn: &Connection, id: &str) -> AppResult<Note> {
     conn.query_row(
-        "SELECT id, parent_id, title, content, sort_order, is_folder, deleted_at, created_at, updated_at
+        "SELECT id, parent_id, title, content, sort_order, is_folder, note_type, deleted_at, created_at, updated_at
          FROM notes WHERE id = ?1 AND deleted_at IS NULL",
         params![id],
         |row| {
@@ -59,9 +62,10 @@ pub fn get_by_id(conn: &Connection, id: &str) -> AppResult<Note> {
                 content: row.get(3)?,
                 sort_order: row.get(4)?,
                 is_folder: row.get(5)?,
-                deleted_at: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                note_type: row.get(6)?,
+                deleted_at: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         },
     )
@@ -73,7 +77,7 @@ pub fn get_by_id(conn: &Connection, id: &str) -> AppResult<Note> {
 
 pub fn get_by_id_including_deleted(conn: &Connection, id: &str) -> AppResult<Note> {
     conn.query_row(
-        "SELECT id, parent_id, title, content, sort_order, is_folder, deleted_at, created_at, updated_at
+        "SELECT id, parent_id, title, content, sort_order, is_folder, note_type, deleted_at, created_at, updated_at
          FROM notes WHERE id = ?1",
         params![id],
         |row| {
@@ -84,9 +88,10 @@ pub fn get_by_id_including_deleted(conn: &Connection, id: &str) -> AppResult<Not
                 content: row.get(3)?,
                 sort_order: row.get(4)?,
                 is_folder: row.get(5)?,
-                deleted_at: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                note_type: row.get(6)?,
+                deleted_at: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         },
     )
@@ -98,10 +103,10 @@ pub fn get_by_id_including_deleted(conn: &Connection, id: &str) -> AppResult<Not
 
 pub fn list_metadata(conn: &Connection, include_deleted: bool) -> AppResult<Vec<NoteRow>> {
     let sql = if include_deleted {
-        "SELECT id, parent_id, title, sort_order, is_folder, deleted_at, created_at, updated_at
+        "SELECT id, parent_id, title, sort_order, is_folder, note_type, deleted_at, created_at, updated_at
          FROM notes ORDER BY sort_order"
     } else {
-        "SELECT id, parent_id, title, sort_order, is_folder, deleted_at, created_at, updated_at
+        "SELECT id, parent_id, title, sort_order, is_folder, note_type, deleted_at, created_at, updated_at
          FROM notes WHERE deleted_at IS NULL AND title NOT LIKE '__rnotes_%' ORDER BY sort_order"
     };
     let mut stmt = conn.prepare(sql)?;
@@ -112,9 +117,10 @@ pub fn list_metadata(conn: &Connection, include_deleted: bool) -> AppResult<Vec<
             title: row.get(2)?,
             sort_order: row.get(3)?,
             is_folder: row.get(4)?,
-            deleted_at: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
+            note_type: row.get(5)?,
+            deleted_at: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>()
@@ -283,6 +289,7 @@ mod tests {
             content: Some("{}".to_string()),
             sort_order,
             is_folder: false,
+            note_type: "richtext".to_string(),
             deleted_at: None,
             created_at: 1000,
             updated_at: 1000,
@@ -371,6 +378,7 @@ mod tests {
                 content: Some("{}".to_string()),
                 sort_order: 10.0,
                 is_folder: false,
+                note_type: "richtext".to_string(),
                 deleted_at: None,
                 created_at: 1000,
                 updated_at: 1000,
