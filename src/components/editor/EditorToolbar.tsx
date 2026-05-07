@@ -561,7 +561,33 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Item
-              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+              onClick={() => {
+                const { from, to } = editor.state.selection;
+                const selectedText = from !== to ? editor.state.doc.textBetween(from, to, "\n") : "";
+                const lines = selectedText.split("\n").filter((l) => l.trim() !== "");
+                const firstLine = lines[0] ?? "";
+                const hasTab = firstLine.includes("\t");
+                const hasComma = firstLine.includes(",");
+                if (lines.length >= 1 && (hasTab || hasComma)) {
+                  const delimiter = hasTab ? "\t" : ",";
+                  const parsed = lines.map((row) => row.split(delimiter).map((c) => c.trim()));
+                  const maxCols = Math.max(...parsed.map((r) => r.length));
+                  const padded = parsed.map((r) => [...r, ...Array(maxCols - r.length).fill("")]);
+                  const tableNode = {
+                    type: "table",
+                    content: padded.map((rowData) => ({
+                      type: "tableRow",
+                      content: rowData.map((cellText) => ({
+                        type: "tableCell",
+                        content: [{ type: "paragraph", content: cellText ? [{ type: "text", text: cellText }] : [] }],
+                      })),
+                    })),
+                  };
+                  editor.chain().focus().deleteSelection().insertContent(tableNode).run();
+                } else {
+                  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                }
+              }}
               data-testid="insert-table-item"
             >
               Insert Table

@@ -1,4 +1,5 @@
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -158,6 +159,7 @@ export function NoteEditor({
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
           protocols: [{ scheme: "rnotes", optionalSlashes: true }],
+          shouldAutoLink: (url: string) => /^https?:\/\//.test(url) || /^www\./i.test(url),
         },
       }).extend({
         addProseMirrorPlugins() {
@@ -282,6 +284,27 @@ export function NoteEditor({
     content: content ?? undefined,
     shouldRerenderOnTransaction: true,
     editorProps: {
+      handleKeyDown(view, event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return false;
+        const { state, dispatch } = view;
+        const { selection } = state;
+        if (!selection.empty) return false;
+        const { $from } = selection;
+        const dir = event.key === "ArrowRight" ? 1 : -1;
+        const nodeAt = dir === 1 ? state.doc.nodeAt($from.pos) : state.doc.nodeAt($from.pos - 1);
+        if (nodeAt && nodeAt.isAtom && nodeAt.isInline) {
+          dispatch(
+            state.tr.setSelection(
+              TextSelection.create(
+                state.doc,
+                $from.pos + (dir === 1 ? nodeAt.nodeSize : -nodeAt.nodeSize),
+              ),
+            ),
+          );
+          return true;
+        }
+        return false;
+      },
       transformPastedHTML(html) {
         // Strip emoji <img> tags from rich sources (GitHub, Slack, Gmail) and replace with alt text.
         // These sources wrap emoji characters in <img class="emoji" alt="👉"> or point to emoji CDNs.
