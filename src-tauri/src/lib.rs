@@ -10,6 +10,12 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    // SAFETY: called at process start before any other threads read environment variables.
+    unsafe {
+        std::env::set_var("GIO_MODULE_DIR", "");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
