@@ -2,6 +2,36 @@ import { useEffect } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { notifications } from "@mantine/notifications";
+import { Button } from "@mantine/core";
+import { IconCheck } from "@tabler/icons-react";
+
+function showUpdateInstalledNotification(version: string) {
+  const id = "update-installed";
+  notifications.show({
+    id,
+    title: "Update installed",
+    message: (
+      <div>
+        <div>{`The app has been updated to v${version}. Restart to apply.`}</div>
+        <Button
+          size="xs"
+          variant="light"
+          color="teal"
+          mt="xs"
+          onClick={() => {
+            notifications.hide(id);
+            relaunch();
+          }}
+        >
+          Restart now
+        </Button>
+      </div>
+    ),
+    color: "teal",
+    icon: <IconCheck size={16} />,
+    autoClose: 8000,
+  });
+}
 
 export function useUpdater() {
   useEffect(() => {
@@ -18,7 +48,7 @@ export function useUpdater() {
         if (!ok) return;
 
         await update.downloadAndInstall();
-        await relaunch();
+        showUpdateInstalledNotification(update.version);
       } catch (err) {
         console.error("Updater check failed:", err);
       }
@@ -47,7 +77,7 @@ export async function checkForUpdates(): Promise<void> {
     if (!ok) return;
 
     await update.downloadAndInstall();
-    await relaunch();
+    showUpdateInstalledNotification(update.version);
   } catch (err) {
     console.error("Updater check failed:", err);
     notifications.show({
