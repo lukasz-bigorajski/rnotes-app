@@ -323,9 +323,14 @@ export function NoteEditor({
             /<img[^>]*alt="([^"]*)"[^>]*class="[^"]*emoji[^"]*"[^>]*\/?>/gi,
             "$1",
           )
-          // src points to a known emoji CDN (GitHub, Twemoji, etc.)
+          // src points to a known emoji CDN — src before alt
           .replace(
             /<img[^>]*src="[^"]*(?:emoji|twemoji|github\.githubassets\.com\/images\/icons\/emoji)[^"]*"[^>]*alt="([^"]*)"[^>]*\/?>/gi,
+            "$1",
+          )
+          // src points to a known emoji CDN — alt before src
+          .replace(
+            /<img[^>]*alt="([^"]*)"[^>]*src="[^"]*(?:emoji|twemoji|github\.githubassets\.com\/images\/icons\/emoji)[^"]*"[^>]*\/?>/gi,
             "$1",
           );
       },

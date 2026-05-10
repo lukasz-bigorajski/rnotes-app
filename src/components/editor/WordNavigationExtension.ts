@@ -74,6 +74,56 @@ function moveToDocumentBoundary(editor: Editor, dir: -1 | 1, extend: boolean): b
   return true;
 }
 
+// ── Page navigation (PageUp / PageDown / fn+Up / fn+Down on macOS) ───────────
+// ProseMirror's default: browser scrolls the viewport but leaves the PM cursor
+// where it was. Pressing ArrowUp/Down then snaps back to the pre-scroll position
+// via scrollIntoView. Fix: explicitly scroll the nearest overflow container and
+// move the cursor to the position now visible at that edge of the viewport.
+
+function findScrollContainer(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    const { overflowY } = window.getComputedStyle(node);
+    if (overflowY === "auto" || overflowY === "scroll") return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function moveByPage(editor: Editor, dir: -1 | 1, extend: boolean): boolean {
+  const { view } = editor;
+  const container = findScrollContainer(view.dom as HTMLElement);
+  if (!container) return false;
+
+  const rect = container.getBoundingClientRect();
+  const pageHeight = rect.height;
+
+  // Save cursor's x coordinate before scrolling so we land on the same column.
+  const { state, dispatch } = view;
+  const selCoords = view.coordsAtPos(state.selection.head);
+
+  container.scrollTop += dir * pageHeight;
+
+  // After scrolling, find the document position at the new viewport edge.
+  const edgeY = dir < 0
+    ? rect.top + 10        // near top of the visible container
+    : rect.bottom - 10;   // near bottom of the visible container
+
+  const hit = view.posAtCoords({ left: selCoords.left, top: edgeY });
+
+  // Fallback to document boundary when posAtCoords returns nothing (sparse docs).
+  const targetPos = hit
+    ? hit.pos
+    : (dir < 0 ? Selection.atStart(state.doc).from : Selection.atEnd(state.doc).from);
+
+  const newSel = extend
+    ? TextSelection.create(state.doc, state.selection.anchor, targetPos)
+    : TextSelection.create(state.doc, targetPos);
+
+  dispatch(state.tr.setSelection(newSel));
+  return true;
+}
+
 // ── Extension ─────────────────────────────────────────────────────────────────
 
 export const WordNavigationExtension = Extension.create({
@@ -94,6 +144,11 @@ export const WordNavigationExtension = Extension.create({
       "Mod-ArrowDown": () => moveToDocumentBoundary(this.editor, 1, false),
       "Shift-Mod-ArrowUp": () => moveToDocumentBoundary(this.editor, -1, true),
       "Shift-Mod-ArrowDown": () => moveToDocumentBoundary(this.editor, 1, true),
+      // Page navigation (fn+Up / fn+Down on macOS)
+      "PageUp": () => moveByPage(this.editor, -1, false),
+      "PageDown": () => moveByPage(this.editor, 1, false),
+      "Shift-PageUp": () => moveByPage(this.editor, -1, true),
+      "Shift-PageDown": () => moveByPage(this.editor, 1, true),
     };
   },
 });

@@ -79,6 +79,10 @@ test("transformPastedHTML regex strips emoji class img but leaves normal img unt
         .replace(
           /<img[^>]*src="[^"]*(?:emoji|twemoji|github\.githubassets\.com\/images\/icons\/emoji)[^"]*"[^>]*alt="([^"]*)"[^>]*\/?>/gi,
           "$1",
+        )
+        .replace(
+          /<img[^>]*alt="([^"]*)"[^>]*src="[^"]*(?:emoji|twemoji|github\.githubassets\.com\/images\/icons\/emoji)[^"]*"[^>]*\/?>/gi,
+          "$1",
         );
     }
 
