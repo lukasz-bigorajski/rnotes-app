@@ -18,6 +18,7 @@ import { HeadingShortcutsExtension } from "./HeadingShortcutsExtension";
 import { LineOperationsExtension } from "./LineOperationsExtension";
 import { QuoteWrapExtension } from "./QuoteWrapExtension";
 import { EmojiExtension } from "./EmojiExtension";
+import { WordNavigationExtension } from "./WordNavigationExtension";
 import "tippy.js/dist/tippy.css";
 import { EditorToolbar } from "./EditorToolbar";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -264,6 +265,7 @@ export function NoteEditor({
       LineOperationsExtension,
       QuoteWrapExtension,
       EmojiExtension,
+      WordNavigationExtension,
       Typography,
       TextStyle,
       Color,
@@ -286,13 +288,14 @@ export function NoteEditor({
     editorProps: {
       handleKeyDown(view, event) {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return false;
+        if (event.altKey || event.metaKey || event.ctrlKey) return false; // Let WordNavigationExtension / browser handle modifier+Arrow
         const { state, dispatch } = view;
         const { selection } = state;
         if (!selection.empty) return false;
         const { $from } = selection;
         const dir = event.key === "ArrowRight" ? 1 : -1;
         const nodeAt = dir === 1 ? state.doc.nodeAt($from.pos) : state.doc.nodeAt($from.pos - 1);
-        if (nodeAt && nodeAt.isAtom && nodeAt.isInline) {
+        if (nodeAt && nodeAt.isAtom && nodeAt.isInline && !nodeAt.isText) {
           dispatch(
             state.tr.setSelection(
               TextSelection.create(
