@@ -1,0 +1,51 @@
+/* Dark mode overrides for ReactGrid v4.
+   All selectors are global because ReactGrid class names are third-party and cannot be scoped. */
+
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content) {
+  color: var(--mantine-color-dark-0);
+}
+
+/* All cells (data + sticky header/row-number) */
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane .rg-cell) {
+  background-color: var(--mantine-color-dark-7);
+  color: var(--mantine-color-dark-0);
+  border-color: var(--mantine-color-dark-4);
+}
+
+/* Sticky pane backgrounds (row header, column header) */
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-top),
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-bottom),
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-left),
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-right) {
+  background-color: var(--mantine-color-dark-6);
+}
+
+/* Cells inside sticky top/left panes (column headers and row numbers) */
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-top .rg-cell),
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-pane.rg-pane-left .rg-cell) {
+  background-color: var(--mantine-color-dark-6);
+  color: var(--mantine-color-dark-0);
+  border-color: var(--mantine-color-dark-4);
+}
+
+/* Cell editor (the floating input when editing) */
+:global([data-mantine-color-scheme="dark"]) :global(.rg-celleditor) {
+  background-color: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-blue-5);
+}
+
+:global([data-mantine-color-scheme="dark"]) :global(.rg-celleditor-input),
+:global([data-mantine-color-scheme="dark"]) :global(.rg-celleditor .rg-input) {
+  background-color: var(--mantine-color-dark-7);
+  color: var(--mantine-color-dark-0);
+}
+
+/* Context menu */
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-context-menu) {
+  background-color: var(--mantine-color-dark-6);
+  color: var(--mantine-color-dark-0);
+}
+
+:global([data-mantine-color-scheme="dark"]) :global(.reactgrid-content .rg-context-menu .rg-context-menu-option:hover) {
+  background-color: var(--mantine-color-dark-5);
+}

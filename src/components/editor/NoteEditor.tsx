@@ -482,6 +482,9 @@ export function NoteEditor({
   editorRef.current = editor;
   const noteIdRef = useRef(noteId);
   noteIdRef.current = noteId;
+  const findBarOpenRef = useRef(findBarOpen);
+  findBarOpenRef.current = findBarOpen;
+  const findInputFocusRef = useRef<(() => void) | null>(null);
 
   // Expose force-save via ref so App.tsx hotkeys can call it
   useEffect(() => {
@@ -547,10 +550,14 @@ export function NoteEditor({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
-      // Cmd+F — open find bar
+      // Cmd+F — open find bar or re-focus search input if already open
       if (e.key === "f" && !e.shiftKey) {
         e.preventDefault();
-        setFindBarOpen(true);
+        if (findBarOpenRef.current && findInputFocusRef.current) {
+          findInputFocusRef.current();
+        } else {
+          setFindBarOpen(true);
+        }
         return;
       }
 
@@ -858,6 +865,7 @@ export function NoteEditor({
             editor.commands.focus(undefined, { scrollIntoView: false });
           }}
           initialQuery={activeFindQuery}
+          focusRef={findInputFocusRef}
         />
       )}
       <div className={classes.titleRow}>

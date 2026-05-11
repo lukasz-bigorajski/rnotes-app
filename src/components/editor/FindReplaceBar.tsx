@@ -17,9 +17,10 @@ interface FindReplaceBarProps {
   editor: Editor;
   onClose: () => void;
   initialQuery?: string;
+  focusRef?: { current: (() => void) | null };
 }
 
-export function FindReplaceBar({ editor, onClose, initialQuery }: FindReplaceBarProps) {
+export function FindReplaceBar({ editor, onClose, initialQuery, focusRef }: FindReplaceBarProps) {
   const [findValue, setFindValue] = useState(initialQuery ?? "");
   const [replaceValue, setReplaceValue] = useState("");
   const [showReplace, setShowReplace] = useState(false);
@@ -30,6 +31,18 @@ export function FindReplaceBar({ editor, onClose, initialQuery }: FindReplaceBar
     findInputRef.current?.focus();
     findInputRef.current?.select();
   }, []);
+
+  // Expose a focus callback so the parent can re-focus the input (e.g. Cmd+F when bar is open)
+  useEffect(() => {
+    if (!focusRef) return;
+    focusRef.current = () => {
+      findInputRef.current?.focus();
+      findInputRef.current?.select();
+    };
+    return () => {
+      focusRef.current = null;
+    };
+  }, [focusRef]);
 
   // Clear decorations when bar closes
   useEffect(() => {
@@ -130,10 +143,17 @@ export function FindReplaceBar({ editor, onClose, initialQuery }: FindReplaceBar
         } else {
           goToNext();
         }
-        editor.commands.focus();
+        // Move the ProseMirror cursor to the current match so Escape lands there.
+        // Read from editor.state after dispatch (synchronous) to get the updated index.
+        const ps = findReplaceKey.getState(editor.state);
+        if (ps && ps.matches.length > 0) {
+          const match = ps.matches[ps.currentIndex];
+          editor.commands.setTextSelection({ from: match.from, to: match.from });
+        }
+        // Keep focus in find bar so the user can keep pressing Enter to navigate.
       }
     },
-    [onClose, goToNext, goToPrev],
+    [onClose, goToNext, goToPrev, editor],
   );
 
   return (

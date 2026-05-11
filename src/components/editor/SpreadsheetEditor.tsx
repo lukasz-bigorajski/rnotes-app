@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import { ReactGrid, Column, Row, CellChange, TextCell } from "@silevis/reactgrid";
 import { Group, TextInput, Text } from "@mantine/core";
 import "@silevis/reactgrid/styles.css";
+import "./SpreadsheetEditor.module.css";
 import type { SpreadsheetContent } from "../../ipc/notes";
 import { evaluateAll } from "../../lib/formulaEvaluator";
 import { renameNote } from "../../ipc/notes";
@@ -48,7 +49,9 @@ export function SpreadsheetEditor({
   const [cells, setCells] = useState<Record<string, string>>(content?.cells ?? {});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [localTitle, setLocalTitle] = useState(title);
+  const [extraRows, setExtraRows] = useState(0);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellsRef = useRef(cells);
   const noteIdRef = useRef(noteId);
   const onSaveRef = useRef(onSave);
@@ -159,6 +162,25 @@ export function SpreadsheetEditor({
     });
   }, []);
 
+  // Dynamically add non-editable filler rows to fill the visible scroll container height.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const ROW_HEIGHT = 25;
+    const HEADER_HEIGHT = 25;
+    const PADDING = 16;
+    const update = () => {
+      const fitting = Math.ceil((el.clientHeight - HEADER_HEIGHT - PADDING) / ROW_HEIGHT);
+      setExtraRows(Math.max(0, fitting - numRows + 2));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [numRows]);
+
+  const displayRows = numRows + extraRows;
+
   const columns: Column[] = useMemo(() => {
     const cols: Column[] = [{ columnId: "header", width: 40 }];
     for (let c = 0; c < numCols; c++) {
@@ -182,34 +204,30 @@ export function SpreadsheetEditor({
       ],
     };
 
-    const dataRows: Row<TextCell>[] = Array.from({ length: numRows }, (_, r) => ({
-      rowId: String(r),
-      height: 25,
-      cells: [
-        // Row number cell
-        { type: "text" as const, text: String(r + 1), nonEditable: true },
-        // Data cells
-        ...Array.from({ length: numCols }, (_, c) => {
-          const key = `${r}:${c}`;
-          const raw = cells[key] ?? "";
-          const display = computed[key] ?? "";
-          return {
-            type: "text" as const,
-            text: display,
-            // Store raw formula so ReactGrid shows it in edit mode
-            // We override via onCellsChanged using the raw value approach:
-            // When entering edit mode, the text prop is what gets shown in the input.
-            // We swap raw vs computed by using a workaround: store raw in a hidden way.
-            // ReactGrid v4 doesn't support separate edit/display values natively,
-            // so we track editingKey separately.
-            _rawValue: raw,
-          } as TextCell & { _rawValue: string };
-        }),
-      ],
-    }));
+    const dataRows: Row<TextCell>[] = Array.from({ length: displayRows }, (_, r) => {
+      const isFiller = r >= numRows;
+      return {
+        rowId: String(r),
+        height: 25,
+        cells: [
+          { type: "text" as const, text: isFiller ? "" : String(r + 1), nonEditable: true },
+          ...Array.from({ length: numCols }, (_, c) => {
+            if (isFiller) return { type: "text" as const, text: "", nonEditable: true };
+            const key = `${r}:${c}`;
+            const raw = cells[key] ?? "";
+            const display = computed[key] ?? "";
+            return {
+              type: "text" as const,
+              text: display,
+              _rawValue: raw,
+            } as TextCell & { _rawValue: string };
+          }),
+        ],
+      };
+    });
 
     return [headerRow, ...dataRows];
-  }, [numRows, numCols, cells, computed]);
+  }, [displayRows, numRows, numCols, cells, computed]);
 
   // Since ReactGrid v4 doesn't support separate display/edit values for TextCell,
   // we need to track which cell is being edited to show the formula.
@@ -287,6 +305,7 @@ export function SpreadsheetEditor({
         )}
       </Group>
       <div
+        ref={scrollContainerRef}
         style={{
           flex: 1,
           overflow: "auto",
