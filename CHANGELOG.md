@@ -2,6 +2,25 @@
 
 All notable changes to rnotes-app are documented here.
 
+## [0.0.6] - 2026-05-11
+
+### Added
+
+- **Spreadsheet note type** — Create spreadsheet notes with a full grid editor; cells support formula evaluation (`SUM`, `AVG`, `IF`, and more)
+- **Back/forward note navigation** — Navigate your note visit history using back and forward buttons in the editor toolbar
+- **Update notification with restart button** — After a successful app update a notification appears ("Update installed — vX.Y.Z") with a "Restart now" button instead of auto-relaunching immediately
+
+### Fixed
+
+- **Keyboard text navigation** — Word-level (`Option+Arrow`) and page (`PgUp`/`PgDn`) navigation now work correctly in the editor
+- **Arrow key past inline nodes** — Left/Right arrow now skips past inline atom nodes in a single key press instead of getting stuck
+- **Link false-positives** — Dot-separated identifiers without a real protocol or `www` prefix (e.g. Java package names like `com.example.Foo`) are no longer auto-linked on paste
+- **Emoji-as-image paste** — Pasting content containing emoji rendered as `<img>` tags (from certain apps) now correctly produces text emoji instead of broken images
+- **Spreadsheet dark mode** — Grid cells, sticky panes, headers, and the inline cell editor are now readable in dark mode
+- **Task list styling** — Fixed visual appearance of task list items in the editor
+- **Ubuntu GIO startup error** — Suppressed the `libgvfsdbus.so` spam in system logs on Ubuntu by clearing `GIO_MODULE_DIR` at startup
+- **Windows CI release** — Fixed the release pipeline to correctly build and publish the Windows installer
+
 ## [0.0.5] - 2026-05-04
 
 ### Added
