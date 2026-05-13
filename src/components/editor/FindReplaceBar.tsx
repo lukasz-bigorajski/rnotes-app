@@ -61,8 +61,18 @@ export function FindReplaceBar({ editor, onClose, initialQuery, focusRef }: Find
     const { tr } = editor.state;
     tr.setMeta(findReplaceKey, { query: initialQuery, currentIndex: 0 });
     editor.view.dispatch(tr);
-    const el = editor.view.dom.querySelector(".find-replace-current");
-    if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+    // Place cursor at first match so Escape lands there; defer scroll one frame
+    // so the browser has finished laying out the freshly-mounted editor before
+    // we ask it to scroll.
+    const ps = findReplaceKey.getState(editor.view.state);
+    if (ps && ps.matches.length > 0) {
+      const match = ps.matches[0];
+      editor.commands.setTextSelection({ from: match.from, to: match.from });
+    }
+    requestAnimationFrame(() => {
+      const el = editor.view.dom.querySelector(".find-replace-current");
+      if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+    });
   }, []); // intentionally runs once on mount only
 
   const pluginState = findReplaceKey.getState(editor.state);
@@ -135,6 +145,12 @@ export function FindReplaceBar({ editor, onClose, initialQuery, focusRef }: Find
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
+        // Move the ProseMirror cursor to the current match so the user lands there.
+        const ps = findReplaceKey.getState(editor.state);
+        if (ps && ps.matches.length > 0) {
+          const match = ps.matches[ps.currentIndex];
+          editor.commands.setTextSelection({ from: match.from, to: match.from });
+        }
         onClose();
       } else if (e.key === "Enter") {
         e.preventDefault();

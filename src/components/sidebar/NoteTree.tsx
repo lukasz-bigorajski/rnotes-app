@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { editorFocusBridge } from "../../utils/editorFocusBridge";
 import { Tree, RenderTreeNodePayload, Group } from "@mantine/core";
 import { IconFolder, IconFolderOpen, IconNote, IconTable } from "@tabler/icons-react";
@@ -22,11 +22,11 @@ interface NoteTreeProps {
   setActiveNoteId: (id: string | null) => void;
   onNotesChanged: () => void;
   tree: ReturnType<typeof useTree>;
-  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
+  refreshActiveNoteRef?: RefObject<(() => void) | null>;
   pendingRenameId?: string | null;
   onPendingRenameConsumed?: () => void;
-  focusSidebarRef?: MutableRefObject<(() => void) | null>;
-  focusEditorRef?: MutableRefObject<(() => void) | null>;
+  focusSidebarRef?: RefObject<(() => void) | null>;
+  focusEditorRef?: RefObject<(() => void) | null>;
 }
 
 // ---- Helper functions for keyboard navigation ----
@@ -204,6 +204,7 @@ function DraggableTreeNode({
       onClick={handleClick}
       className={className}
       data-selected={isActive}
+      data-node-id={nodeId}
       style={style}
     >
       {isFolder ? (
@@ -375,6 +376,13 @@ export function NoteTree({
     [setActiveNoteId, onNotesChanged],
   );
 
+  const scrollNodeIntoView = useCallback((id: string) => {
+    requestAnimationFrame(() => {
+      const el = treeContainerRef.current?.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+      if (el) el.scrollIntoView({ block: "nearest" });
+    });
+  }, []);
+
   const handleTreeKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const visible = getVisibleNodeIds(treeData, tree.expandedState);
@@ -387,11 +395,19 @@ export function NoteTree({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          if (idx < visible.length - 1) setFocusedNodeId(visible[idx + 1]);
+          if (idx < visible.length - 1) {
+            const nextId = visible[idx + 1];
+            setFocusedNodeId(nextId);
+            scrollNodeIntoView(nextId);
+          }
           break;
         case "ArrowUp":
           e.preventDefault();
-          if (idx > 0) setFocusedNodeId(visible[idx - 1]);
+          if (idx > 0) {
+            const prevId = visible[idx - 1];
+            setFocusedNodeId(prevId);
+            scrollNodeIntoView(prevId);
+          }
           break;
         case "ArrowRight":
           e.preventDefault();
@@ -433,7 +449,7 @@ export function NoteTree({
           break;
       }
     },
-    [treeData, tree, focusedNodeId, activeNoteId, setActiveNoteId, handleDelete],
+    [treeData, tree, focusedNodeId, activeNoteId, setActiveNoteId, handleDelete, scrollNodeIntoView],
   );
 
   // Stabilise the renderNode callback with useCallback so Mantine's Tree does not

@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { notifications } from "@mantine/notifications";
-import { Button } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { Button, Text } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
+import { error as logError } from "@tauri-apps/plugin-log";
 
 function showUpdateInstalledNotification(version: string) {
   const id = "update-installed";
@@ -33,6 +35,31 @@ function showUpdateInstalledNotification(version: string) {
   });
 }
 
+function promptAndInstall(version: string, body: string | undefined, doInstall: () => Promise<void>) {
+  modals.openConfirmModal({
+    title: `Update available: v${version}`,
+    children: (
+      <Text size="sm">
+        {body ? body + "\n\n" : ""}Download and install now?
+      </Text>
+    ),
+    labels: { confirm: "Install", cancel: "Later" },
+    confirmProps: { color: "teal" },
+    onConfirm: () => {
+      doInstall()
+        .then(() => showUpdateInstalledNotification(version))
+        .catch((err: unknown) => {
+          void logError(`Update install failed: ${String(err)}`);
+          notifications.show({
+            title: "Update failed",
+            message: "Could not install the update. Please try again later.",
+            color: "red",
+          });
+        });
+    },
+  });
+}
+
 export function useUpdater() {
   useEffect(() => {
     let cancelled = false;
@@ -41,16 +68,15 @@ export function useUpdater() {
       try {
         const update = await check();
         if (cancelled || !update) return;
-
-        const ok = window.confirm(
-          `rnotes ${update.version} is available.\n\n${update.body ?? ""}\n\nDownload and install now?`,
-        );
-        if (!ok) return;
-
-        await update.downloadAndInstall();
-        showUpdateInstalledNotification(update.version);
+        promptAndInstall(update.version, update.body, () => update.downloadAndInstall());
       } catch (err) {
-        console.error("Updater check failed:", err);
+        void logError(`Updater check failed: ${String(err)}`);
+        notifications.show({
+          title: "Update check failed",
+          message: "Could not check for updates. Check your internet connection.",
+          color: "orange",
+          autoClose: 6000,
+        });
       }
     })();
 
@@ -70,18 +96,12 @@ export async function checkForUpdates(): Promise<void> {
       });
       return;
     }
-
-    const ok = window.confirm(
-      `rnotes ${update.version} is available.\n\n${update.body ?? ""}\n\nDownload and install now?`,
-    );
-    if (!ok) return;
-
-    await update.downloadAndInstall();
-    showUpdateInstalledNotification(update.version);
+    promptAndInstall(update.version, update.body, () => update.downloadAndInstall());
   } catch (err) {
-    console.error("Updater check failed:", err);
+    void logError(`Updater check failed: ${String(err)}`);
     notifications.show({
-      message: "Update check failed",
+      title: "Update check failed",
+      message: "Could not check for updates. Check your internet connection.",
       color: "red",
     });
   }

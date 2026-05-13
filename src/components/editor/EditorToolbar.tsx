@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Button,
   ColorSwatch,
   Group,
   Menu,
@@ -674,20 +675,30 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
                 ]}
               />
               {linkMode === "url" ? (
-                <TextInput
-                  placeholder="https://example.com"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setLink();
-                    if (e.key === "Escape") {
-                      setLinkOpened(false);
-                      resetLinkDialog();
-                    }
-                  }}
-                  autoFocus
-                  size="xs"
-                />
+                <>
+                  <TextInput
+                    placeholder="https://example.com"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setLink();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setLinkOpened(false);
+                        resetLinkDialog();
+                      }
+                    }}
+                    autoFocus
+                    size="xs"
+                  />
+                  <Button size="xs" onClick={setLink} data-testid="link-ok-btn">
+                    OK
+                  </Button>
+                </>
               ) : (
                 <NoteLinkSearch
                   query={noteQuery}
@@ -816,20 +827,30 @@ export function EditorToolbar({ editor, noteId, title = "Untitled", createdAt, u
                 ]}
               />
               {linkMode === "url" ? (
-                <TextInput
-                  ref={floatingInputRef}
-                  placeholder="https://example.com"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setFloatingLinkAction();
-                    if (e.key === "Escape") {
-                      setFloatingLink(false);
-                      resetLinkDialog();
-                    }
-                  }}
-                  size="xs"
-                />
+                <>
+                  <TextInput
+                    ref={floatingInputRef}
+                    placeholder="https://example.com"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFloatingLinkAction();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setFloatingLink(false);
+                        resetLinkDialog();
+                      }
+                    }}
+                    size="xs"
+                  />
+                  <Button size="xs" onClick={setFloatingLinkAction}>
+                    OK
+                  </Button>
+                </>
               ) : (
                 <NoteLinkSearch
                   query={noteQuery}

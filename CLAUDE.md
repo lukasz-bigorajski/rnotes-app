@@ -112,3 +112,6 @@ db/        →  Raw SQL queries against rusqlite Connection
 ## Debugging
 - Frontend DevTools: `Cmd+Option+I` in Tauri window
 - Backend logs: `RUST_LOG=debug pnpm tauri dev`
+- Log files (production builds):
+  - macOS: `~/Library/Logs/com.rnotes.app/rnotes.log`
+  - Linux: `~/.local/share/com.rnotes.app/logs/rnotes.log`

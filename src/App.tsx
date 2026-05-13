@@ -193,10 +193,14 @@ function AppInner() {
 
   const handleGlobalSearchSelect = (noteId: string, query: string) => {
     setPendingSearchQuery(query || null);
-    editorFocusBridge.focusOnLoad = true;
     handleSetActiveNoteId(noteId);
     setGlobalSearchOpened(false);
-    setTimeout(() => focusEditorRef.current?.(), 150);
+    // When opening with a search query the find bar handles focus and scroll;
+    // only auto-focus the editor when there is no pending query.
+    if (!query) {
+      editorFocusBridge.focusOnLoad = true;
+      setTimeout(() => focusEditorRef.current?.(), 150);
+    }
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useTree } from "@mantine/core";
 import { Stack, Text, Group, TextInput, ActionIcon, Menu } from "@mantine/core";
 import {
@@ -26,12 +26,12 @@ type SidebarTab = "notes" | "tasks" | "archive";
 interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
-  refreshRef?: MutableRefObject<(() => void) | null>;
-  createNoteRef?: MutableRefObject<(() => void) | null>;
-  createFolderRef?: MutableRefObject<(() => void) | null>;
-  refreshActiveNoteRef?: MutableRefObject<(() => void) | null>;
-  focusSidebarRef?: MutableRefObject<(() => void) | null>;
-  focusEditorRef?: MutableRefObject<(() => void) | null>;
+  refreshRef?: RefObject<(() => void) | null>;
+  createNoteRef?: RefObject<(() => void) | null>;
+  createFolderRef?: RefObject<(() => void) | null>;
+  refreshActiveNoteRef?: RefObject<(() => void) | null>;
+  focusSidebarRef?: RefObject<(() => void) | null>;
+  focusEditorRef?: RefObject<(() => void) | null>;
   onShowTaskOverview?: () => void;
   onShowNotes?: () => void;
   onOpenGlobalSearch?: () => void;
@@ -199,61 +199,63 @@ export function Sidebar({
 
   return (
     <Stack gap="sm" h="100%" justify="space-between">
-      <Stack gap="sm" style={{ flex: 1, overflow: "auto" }}>
+      {activeTab === "notes" && (
+        <Group gap="xs">
+          <TextInput
+            ref={searchInputRef}
+            placeholder="Search notes..."
+            leftSection={<IconSearch size={14} />}
+            size="xs"
+            style={{ flex: 1, cursor: "pointer" }}
+            readOnly
+            onClick={onOpenGlobalSearch}
+            onFocus={(e) => {
+              e.target.blur();
+              onOpenGlobalSearch?.();
+            }}
+            data-testid="open-global-search-btn"
+          />
+          <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+              <ActionIcon
+                variant="default"
+                size="input-xs"
+                aria-label="Create new"
+                data-testid="create-new-btn"
+              >
+                <IconPlus size={16} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconNote size={14} />}
+                onClick={handleCreateNote}
+                data-testid="create-note-btn"
+              >
+                New Note
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconFolder size={14} />}
+                onClick={handleCreateFolder}
+                data-testid="create-folder-btn"
+              >
+                New Folder
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconTable size={14} />}
+                onClick={handleCreateSpreadsheet}
+                data-testid="create-spreadsheet-btn"
+              >
+                New Spreadsheet
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      )}
+
+      <Stack gap="sm" style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
         {activeTab === "notes" && (
           <>
-            <Group gap="xs">
-              <TextInput
-                ref={searchInputRef}
-                placeholder="Search notes..."
-                leftSection={<IconSearch size={14} />}
-                size="xs"
-                style={{ flex: 1, cursor: "pointer" }}
-                readOnly
-                onClick={onOpenGlobalSearch}
-                onFocus={(e) => {
-                  e.target.blur();
-                  onOpenGlobalSearch?.();
-                }}
-                data-testid="open-global-search-btn"
-              />
-              <Menu position="bottom-end" withinPortal>
-                <Menu.Target>
-                  <ActionIcon
-                    variant="default"
-                    size="input-xs"
-                    aria-label="Create new"
-                    data-testid="create-new-btn"
-                  >
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<IconNote size={14} />}
-                    onClick={handleCreateNote}
-                    data-testid="create-note-btn"
-                  >
-                    New Note
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconFolder size={14} />}
-                    onClick={handleCreateFolder}
-                    data-testid="create-folder-btn"
-                  >
-                    New Folder
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconTable size={14} />}
-                    onClick={handleCreateSpreadsheet}
-                    data-testid="create-spreadsheet-btn"
-                  >
-                    New Spreadsheet
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-            </Group>
-
             {visibleNotes.length === 0 ? (
               <Text c="dimmed" ta="center" mt="xl">
                 No notes yet. Create one to get started.
